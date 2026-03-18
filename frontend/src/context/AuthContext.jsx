@@ -24,9 +24,11 @@ const getRoleFromToken = (token) => {
       typeof a === "string" ? a.startsWith("ROLE_") : a?.authority?.startsWith("ROLE_")
     );
     const raw = typeof roleEntry === "string" ? roleEntry : roleEntry?.authority;
-    return raw ? raw.replace("ROLE_", "") : null;
+    return raw || null;  // keep ROLE_ prefix
   }
-  if (typeof authorities === "string") return authorities.replace("ROLE_", "");
+  if (typeof authorities === "string") return authorities; // keep ROLE_ prefix
+  // fallback: check direct role claim
+  if (decoded.role && typeof decoded.role === "string") return decoded.role;
   return null;
 };
 
@@ -52,7 +54,19 @@ const parseError = (err) => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const stored = localStorage.getItem("tms_user");
-    return stored ? JSON.parse(stored) : null;
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    // Migration: if role exists but has no ROLE_ prefix, fix it
+    // Also re-decode from token if role is missing or wrong
+    const token = localStorage.getItem("tms_token");
+    if (token) {
+      const roleFromToken = getRoleFromToken(token);
+      if (roleFromToken && parsed.role !== roleFromToken) {
+        parsed.role = roleFromToken;
+        localStorage.setItem("tms_user", JSON.stringify(parsed));
+      }
+    }
+    return parsed;
   });
   const [token, setToken] = useState(() => localStorage.getItem("tms_token"));
   const [loading, setLoading] = useState(false);

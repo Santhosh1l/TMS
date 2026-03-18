@@ -1,13 +1,11 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { taskAttemptService } from "../../services/api";
+import { taskAttemptService, toArray } from "../../services/api";
 import {
   PageHeader, Table, StatusBadge, Modal, ConfirmDialog,
   Alert, EmptyState, Spinner, InputField, SelectField,
 } from "../../components/common";
 import { TASK_TYPES, TASK_ATTEMPT_STATUSES } from "../../utils/enums";
-
-const toArray = (d) => Array.isArray(d) ? d : Array.isArray(d?.content) ? d.content : Array.isArray(d?.data) ? d.data : [];
 
 
 // ─── Create Attempt Modal ────────────────────────────────────────

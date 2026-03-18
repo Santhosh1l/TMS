@@ -1,22 +1,108 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { userService } from "../../services/api";
+import { userService, authService, toArray } from "../../services/api";
 import {
   PageHeader, Table, StatusBadge, Modal, ConfirmDialog,
-  Alert, EmptyState, Spinner, SelectField, InputField,
+  Alert, EmptyState, Spinner, InputField, SelectField,
 } from "../../components/common";
 import { USER_ROLES, USER_STATUSES } from "../../utils/enums";
 
-const toArray = (d) => Array.isArray(d) ? d : Array.isArray(d?.content) ? d.content : Array.isArray(d?.data) ? d.data : [];
+// ─── Add User Modal ───────────────────────────────────────────────
+function AddUserModal({ open, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name: "", email: "", password: "", role: "ROLE_EMPLOYEE",
+    status: "ACTIVE", department: "", location: "", managerId: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (open) {
+      setForm({ name: "", email: "", password: "", role: "ROLE_EMPLOYEE", status: "ACTIVE", department: "", location: "", managerId: "" });
+      setError("");
+    }
+  }, [open]);
 
-// ─── Edit Modal ──────────────────────────────────────────────────
+  const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const payload = {
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        role: form.role,
+        status: form.status,
+        department: form.department || undefined,
+        managerId: form.managerId ? Number(form.managerId) : undefined,
+      };
+      await authService.register(payload);
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Failed to create user.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Add New User" size="lg">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <Alert message={error} />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <InputField label="Full Name" name="name" value={form.name} onChange={handleChange} placeholder="John Doe" required maxLength={100} />
+          </div>
+          <div className="col-span-2">
+            <InputField label="Email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="user@company.com" required maxLength={160} />
+          </div>
+          <div className="col-span-2">
+            <InputField label="Password" name="password" type="password" value={form.password} onChange={handleChange} placeholder="Min 8 characters" required minLength={8} maxLength={64} />
+          </div>
+          <div>
+            <label className="label">Role</label>
+            <select name="role" value={form.role} onChange={handleChange} className="input-field appearance-none">
+              {USER_ROLES.map((r) => <option key={r} value={r}>{r.replace("ROLE_", "")}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">Status</label>
+            <select name="status" value={form.status} onChange={handleChange} className="input-field appearance-none">
+              {USER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <InputField label="Department" name="department" value={form.department} onChange={handleChange} placeholder="Engineering" maxLength={80} />
+          <InputField label="Location" name="location" value={form.location} onChange={handleChange} placeholder="Chennai" maxLength={80} />
+          <div className="col-span-2">
+            <InputField label="Manager ID" name="managerId" type="number" value={form.managerId} onChange={handleChange} placeholder="Optional" min={1} />
+          </div>
+        </div>
+        <div className="flex gap-3 justify-end mt-2">
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn-primary flex items-center gap-2" disabled={saving}>
+            {saving && <Spinner size="sm" />} Add User
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Edit User Modal ─────────────────────────────────────────────
 function EditUserModal({ user, open, onClose, onSaved }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (user) setForm({ userId: user.userId, role: user.role, status: user.status, department: user.department || "", location: user.location || "", managerId: user.managerId || "" });
+    if (user) setForm({
+      userId: user.userId, role: user.role, status: user.status,
+      department: user.department || "", location: user.location || "",
+      managerId: user.managerId || "",
+    });
   }, [user]);
 
   const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -37,21 +123,19 @@ function EditUserModal({ user, open, onClose, onSaved }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={`Edit User #${user?.userId}`}>
+    <Modal open={open} onClose={onClose} title={`Edit User — ${user?.name}`}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Alert message={error} />
         <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1">
+          <div>
             <label className="label">Role</label>
             <select name="role" value={form.role || ""} onChange={handleChange} className="input-field appearance-none">
-              {USER_ROLES.map((r) => (
-                <option key={r} value={r}>{r.replace("ROLE_", "")}</option>
-              ))}
+              {USER_ROLES.map((r) => <option key={r} value={r}>{r.replace("ROLE_", "")}</option>)}
             </select>
           </div>
           <SelectField label="Status" name="status" value={form.status} onChange={handleChange} options={USER_STATUSES} />
           <InputField label="Department" name="department" value={form.department} onChange={handleChange} placeholder="Engineering" maxLength={80} />
-          <InputField label="Location" name="location" value={form.location} onChange={handleChange} placeholder="Remote" maxLength={80} />
+          <InputField label="Location" name="location" value={form.location} onChange={handleChange} placeholder="Chennai" maxLength={80} />
           <div className="col-span-2">
             <InputField label="Manager ID" name="managerId" type="number" value={form.managerId} onChange={handleChange} placeholder="Optional" min={1} />
           </div>
@@ -67,11 +151,12 @@ function EditUserModal({ user, open, onClose, onSaved }) {
   );
 }
 
-// ─── Main Page ───────────────────────────────────────────────────
+// ─── Main Page ────────────────────────────────────────────────────
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ role: "", status: "" }); // empty = All Roles
+  const [filters, setFilters] = useState({ role: "", status: "" });
+  const [addOpen, setAddOpen] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [deleteUser, setDeleteUser] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -110,13 +195,22 @@ export default function UsersPage() {
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Users" subtitle="Manage system users and their roles" />
+      <PageHeader
+        title="Users"
+        subtitle="Manage system users and their roles"
+        action={
+          <button className="btn-primary" onClick={() => setAddOpen(true)}>
+            + Add User
+          </button>
+        }
+      />
 
       {/* Filters */}
       <div className="flex gap-3 mb-6 flex-wrap">
         <select
-          value={filters.role} onChange={(e) => setFilters((f) => ({ ...f, role: e.target.value }))}
-          className="input-field w-48"
+          value={filters.role}
+          onChange={(e) => setFilters((f) => ({ ...f, role: e.target.value }))}
+          className="input-field w-44"
         >
           <option value="">All Roles</option>
           {USER_ROLES.map((r) => (
@@ -124,24 +218,24 @@ export default function UsersPage() {
           ))}
         </select>
         <select
-          value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+          value={filters.status}
+          onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
           className="input-field w-40"
         >
           <option value="">All Statuses</option>
           {USER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        <span className="text-slate-500 text-xs font-mono self-center">{users.length} user{users.length !== 1 ? "s" : ""}</span>
       </div>
 
-      {alert.message && (
-        <div className="mb-4"><Alert type={alert.type} message={alert.message} /></div>
-      )}
+      {alert.message && <div className="mb-4"><Alert type={alert.type} message={alert.message} /></div>}
 
       <Table
         headers={["ID", "Name", "Email", "Role", "Department", "Status", "Actions"]}
         loading={loading}
         empty={
           <tr><td colSpan={7}>
-            <EmptyState icon="◈" title="No users found" description="Try adjusting your filters." />
+            <EmptyState icon="◈" title="No users found" description="Try adjusting your filters or add a new user." action={<button className="btn-primary" onClick={() => setAddOpen(true)}>+ Add User</button>} />
           </td></tr>
         }
       >
@@ -155,27 +249,16 @@ export default function UsersPage() {
             <td className="px-4 py-3"><StatusBadge status={u.status} /></td>
             <td className="px-4 py-3">
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setEditUser(u)}
-                  className="text-xs text-slate-400 hover:text-brand transition-colors px-2 py-1 rounded hover:bg-brand/10"
-                >Edit</button>
-                <button
-                  onClick={() => setDeleteUser(u)}
-                  className="text-xs text-slate-400 hover:text-accent-rose transition-colors px-2 py-1 rounded hover:bg-accent-rose/10"
-                >Delete</button>
+                <button onClick={() => setEditUser(u)} className="text-xs text-slate-400 hover:text-brand transition-colors px-2 py-1 rounded hover:bg-brand/10">Edit</button>
+                <button onClick={() => setDeleteUser(u)} className="text-xs text-slate-400 hover:text-accent-rose transition-colors px-2 py-1 rounded hover:bg-accent-rose/10">Delete</button>
               </div>
             </td>
           </tr>
         ))}
       </Table>
 
-      <EditUserModal
-        user={editUser}
-        open={!!editUser}
-        onClose={() => setEditUser(null)}
-        onSaved={fetchUsers}
-      />
-
+      <AddUserModal open={addOpen} onClose={() => setAddOpen(false)} onSaved={fetchUsers} />
+      <EditUserModal user={editUser} open={!!editUser} onClose={() => setEditUser(null)} onSaved={fetchUsers} />
       <ConfirmDialog
         open={!!deleteUser}
         onClose={() => setDeleteUser(null)}

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { Alert, Spinner } from "../../components/common";
 
@@ -22,7 +22,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen grid-bg flex items-center justify-center p-4">
-      {/* Ambient glow */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative w-full max-w-sm animate-slide-up">
@@ -64,22 +63,23 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 className="input-field"
                 required
-                autoComplete="current-password"
                 minLength={8}
+                autoComplete="current-password"
               />
             </div>
 
-            <button type="submit" className="btn-primary w-full mt-1 flex items-center justify-center gap-2" disabled={loading}>
+            <button
+              type="submit"
+              className="btn-primary w-full mt-1 flex items-center justify-center gap-2"
+              disabled={loading}
+            >
               {loading ? <Spinner size="sm" /> : null}
               {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
 
-          <p className="text-center text-sm text-slate-500 mt-6">
-            New to TMS?{" "}
-            <Link to="/register" className="text-brand hover:text-brand-light transition-colors font-medium">
-              Create account
-            </Link>
+          <p className="text-center text-xs text-slate-600 mt-6">
+            Contact your administrator to get access
           </p>
         </div>
       </div>

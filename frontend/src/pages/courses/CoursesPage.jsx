@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { courseService } from "../../services/api";
+import { courseService, toArray } from "../../services/api";
 import {
   PageHeader, Table, StatusBadge, Modal, ConfirmDialog,
   Alert, EmptyState, Spinner, InputField, SelectField,
@@ -10,13 +10,6 @@ import {
 const COURSE_TYPES = ["TECH", "C2C", "SOFT_SKILLS", "COMPLIANCE"];
 const COURSE_MODES = ["ONLINE", "OFFLINE", "HYBRID"];
 
-// Safe array extractor — handles plain array, Spring Page<T>, or wrapped response
-const toArray = (data) => {
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data.content)) return data.content;
-  if (data && Array.isArray(data.data)) return data.data;
-  return [];
-};
 
 // ─── Course Form Modal ───────────────────────────────────────────
 function CourseModal({ course, open, onClose, onSaved }) {

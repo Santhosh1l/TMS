@@ -1,13 +1,11 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { sessionService } from "../../services/api";
+import { sessionService, toArray } from "../../services/api";
 import {
   PageHeader, Table, StatusBadge, Modal, ConfirmDialog,
   Alert, EmptyState, Spinner, InputField, SelectField,
 } from "../../components/common";
 import { SESSION_TYPES } from "../../utils/enums";
-
-const toArray = (d) => Array.isArray(d) ? d : Array.isArray(d?.content) ? d.content : Array.isArray(d?.data) ? d.data : [];
 
 
 // ─── Session Form Modal ─────────────────────────────────────────
