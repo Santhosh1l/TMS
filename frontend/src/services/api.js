@@ -17,9 +17,19 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 globally
+// Handle 401 globally + auto-convert numeric-keyed objects to arrays
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    // If backend returns {0:{...}, 1:{...}} instead of [{...},{...}]
+    // convert it to a proper array automatically
+    if (res.data && typeof res.data === "object" && !Array.isArray(res.data)) {
+      const keys = Object.keys(res.data);
+      if (keys.length > 0 && keys.every(k => !isNaN(k))) {
+        res.data = Object.values(res.data);
+      }
+    }
+    return res;
+  },
   (err) => {
     if (err.response?.status === 401) {
       localStorage.removeItem("tms_token");
