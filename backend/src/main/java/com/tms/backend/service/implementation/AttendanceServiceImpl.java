@@ -76,7 +76,7 @@ public class AttendanceServiceImpl implements AttendanceService {
 	@Override
 	public AttendanceDTO createAttendance(AttendanceDTO dto) {
 
-	
+
 		Session session = sessionRepository
 				.findByIdAndIsDeleteFalse(dto.getSessionId())
 				.orElseThrow(() -> new IllegalArgumentException(
