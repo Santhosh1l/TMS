@@ -77,20 +77,4 @@ public class User implements UserDetails {
 		return email;
 	}
 
-//    @OneToMany(mappedBy = "user", orphanRemoval = false)
-//    @Builder.Default
-//    private List<Enrollment> enrollments = new ArrayList<>();
-//
-//    @OneToMany(mappedBy = "user", orphanRemoval = false)
-//    @Builder.Default
-//    private List<Attendance> attendances = new ArrayList<>();
-//
-//    @OneToMany(mappedBy = "createdBy", orphanRemoval = false)
-//    @Builder.Default
-//    private List<Task> tasksCreated = new ArrayList<>();
-//
-//    @OneToMany(mappedBy = "user", orphanRemoval = false)
-//    @Builder.Default
-//    private List<TaskAttempt> taskAttempts = new ArrayList<>();
-
 }

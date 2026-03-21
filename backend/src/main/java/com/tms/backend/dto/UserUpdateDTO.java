@@ -13,7 +13,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserUpdateDTO {
-
+	private String name;
+	private String email;
 	private Long userId;
 
 	private UserRole role;

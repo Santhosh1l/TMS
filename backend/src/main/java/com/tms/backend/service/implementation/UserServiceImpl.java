@@ -25,12 +25,7 @@ public class UserServiceImpl implements UserService {
 
 	@Override
 	public List<UserDTO> getAllUsers(UserRole role, UserStatus status) {
-
-		// FIX: original logic was broken — when role == ADMIN it loaded ALL users
-		// (including deleted), for other roles it loaded non-deleted users.
-		// Correct behaviour: always start with non-deleted users, then filter.
 		List<User> all = userRepository.findAllByIsDeleteFalse();
-
 		if (role != null) {
 			all = all.stream()
 					.filter(u -> u.getRole() == role)
@@ -51,21 +46,47 @@ public class UserServiceImpl implements UserService {
 		return toDTO(findActiveUser(userId));
 	}
 
+
+
 	@Override
 	public UserDTO updateUserById(UserUpdateDTO data) {
+
 		User user = findActiveUser(data.getUserId());
 
-		if (data.getRole() != null)   user.setRole(data.getRole());
-		if (data.getStatus() != null) user.setStatus(data.getStatus());
+
+		if (data.getName() != null && !data.getName().isBlank()) {
+			user.setName(data.getName().trim());
+		}
+
+		if (data.getEmail() != null && !data.getEmail().isBlank()) {
+
+			userRepository.findByEmailAndIsDeleteFalse(data.getEmail())
+					.filter(existing -> !existing.getId().equals(user.getId()))
+					.ifPresent(u -> {
+						throw new IllegalArgumentException("Email already in use");
+					});
+
+			user.setEmail(data.getEmail().trim());
+		}
+
+		if (data.getRole() != null) {
+			user.setRole(data.getRole());
+		}
+
+		if (data.getStatus() != null) {
+			user.setStatus(data.getStatus());
+		}
 
 		if (data.getDepartment() != null && !data.getDepartment().isBlank()) {
 			user.setDepartment(data.getDepartment().trim());
 		}
+
 		if (data.getLocation() != null && !data.getLocation().isBlank()) {
 			user.setLocation(data.getLocation().trim());
 		}
 
 		if (data.getManagerId() != null) {
+
 			if (data.getManagerId().equals(data.getUserId())) {
 				throw new IllegalArgumentException("A user cannot be their own manager");
 			}
@@ -74,12 +95,12 @@ public class UserServiceImpl implements UserService {
 					.orElseThrow(() -> new IllegalArgumentException(
 							"Manager not found: " + data.getManagerId()));
 
-			// FIX: check ROLE_MANAGER and ROLE_ADMIN (enum values with prefix)
 			if (manager.getRole() != UserRole.ROLE_MANAGER
 					&& manager.getRole() != UserRole.ROLE_ADMIN) {
 				throw new IllegalArgumentException(
 						"Manager must have role ROLE_MANAGER or ROLE_ADMIN");
 			}
+
 			if (manager.getStatus() == UserStatus.INACTIVE) {
 				throw new IllegalArgumentException("Manager must be ACTIVE");
 			}
@@ -89,21 +110,19 @@ public class UserServiceImpl implements UserService {
 
 		return toDTO(userRepository.save(user));
 	}
-
 	@Override
 	public String deleteById(Long userId) {
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new UsernameNotFoundException(
 						"No User found with given ID: " + userId));
 
-		// Soft delete: mark inactive and set delete flag
+		// Only mark deleted
 		user.setStatus(UserStatus.INACTIVE);
-		user.setDelete(Boolean.TRUE);
+
 		userRepository.save(user);
 
 		return "User successfully deleted";
 	}
-
 	// ── Helpers ─────────────────────────────────────────────────────────────────
 
 	private User findActiveUser(Long userId) {

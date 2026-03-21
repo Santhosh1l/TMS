@@ -8,6 +8,7 @@ import com.tms.backend.repository.EnrollmentRepository;
 import com.tms.backend.service.CourseService;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,11 +26,12 @@ public class CourseServiceImpl implements CourseService {
 	@Override
 	public List<CourseDTO> getAllCourses(Long employeeId, Long trainerId, boolean active) {
 
-		// FIX #5: Load all non-deleted courses first, then apply filters
+
 		List<Course> courses = courseRepository.findAll()
 				.stream()
 				.filter(c -> !c.isDelete())
 				.collect(Collectors.toList());
+
 
 		if (employeeId != null) {
 			courses = courses.stream()
@@ -51,19 +53,11 @@ public class CourseServiceImpl implements CourseService {
 					.collect(Collectors.toList());
 		}
 
-		// FIX #5: 'active' param was completely ignored before.
-		// Since Course model has no 'active' field, we treat all non-deleted
-		// courses as active. If you add an 'active' boolean to Course later,
-		// uncomment the filter below:
-		// if (active) {
-		//     courses = courses.stream()
-		//             .filter(Course::isActive)
-		//             .collect(Collectors.toList());
-		// }
-
-		return courses.stream().map(this::toDTO).collect(Collectors.toList());
+		return courses.stream()
+				.sorted(Comparator.comparing(Course::getId))
+				.map(this::toDTO)
+				.collect(Collectors.toList());
 	}
-
 	@Override
 	public CourseDTO getCourseById(Long courseId) {
 		Course data = courseRepository.findById(courseId)
