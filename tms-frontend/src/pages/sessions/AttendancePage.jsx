@@ -174,11 +174,27 @@ export default function AttendancePage() {
       <Table
         headers={["ID", "User ID", "Status", "Check-In", "Check-Out", "Remarks", "Actions"]}
         loading={loading}
-        empty={
-          <tr><td colSpan={7}>
-            <EmptyState icon="◷" title="No attendance records" description="Record attendance for this session." action={<button className="btn-primary" onClick={() => setCreateOpen(true)}>+ Record Attendance</button>} />
-          </td></tr>
-        }
+      empty={
+  (!loading && records.length === 0) ? (
+    <tr>
+      <td colSpan={7}>
+        <EmptyState
+          icon="◷"
+          title="No attendance records"
+          description="Record attendance for this session."
+          action={
+            <button
+              className="btn-primary"
+              onClick={() => setCreateOpen(true)}
+            >
+              + Record Attendance
+            </button>
+          }
+        />
+      </td>
+    </tr>
+  ) : null
+}
       >
         {records.map((r) => (
           <tr key={r.attentanceId} className="border-b border-ink-700/50 last:border-0 table-row-hover">

@@ -27,10 +27,12 @@ public class CourseServiceImpl implements CourseService {
 	public List<CourseDTO> getAllCourses(Long employeeId, Long trainerId, boolean active) {
 
 
-		List<Course> courses = courseRepository.findAll()
-				.stream()
-				.filter(c -> !c.isDelete())
-				.collect(Collectors.toList());
+		List<Course> courses = courseRepository.findAll();
+		if (Boolean.TRUE.equals(active)) {
+			courses = courses.stream()
+					.filter(c -> !c.isDelete()) // only active
+					.collect(Collectors.toList());
+		}
 
 
 		if (employeeId != null) {

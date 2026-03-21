@@ -162,11 +162,27 @@ export default function SessionsPage() {
       <Table
         headers={["ID", "Title", "Course", "Type", "Date", "Time", "Actions"]}
         loading={loading}
-        empty={
-          <tr><td colSpan={7}>
-            <EmptyState icon="◷" title="No sessions found" description="Create a session to get started." action={<button className="btn-primary" onClick={() => setModalOpen(true)}>+ New Session</button>} />
-          </td></tr>
-        }
+empty={
+  (!loading && sessions.length === 0) ? (
+    <tr>
+      <td colSpan={7}>
+        <EmptyState
+          icon="◷"
+          title="No sessions found"
+          description="Create a session to get started."
+          action={
+            <button
+              className="btn-primary"
+              onClick={() => setModalOpen(true)}
+            >
+              + New Session
+            </button>
+          }
+        />
+      </td>
+    </tr>
+  ) : null
+}
       >
         {sessions.map((s) => (
           <tr key={s.sessionId} className="border-b border-ink-700/50 last:border-0 table-row-hover">
