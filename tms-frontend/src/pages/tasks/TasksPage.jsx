@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { taskService, toArray } from "../../services/api";
+import { taskService, courseService, toArray } from "../../services/api";
 import {
   PageHeader, Table, StatusBadge, Modal, ConfirmDialog,
-  Alert, EmptyState, Spinner, InputField, SelectField,
+  Alert, EmptyState, Spinner, InputField, SelectField, TimePickerField,
 } from "../../components/common";
 import { TASK_TYPES, TASK_STATUSES } from "../../utils/enums";
 
@@ -19,16 +19,54 @@ function TaskModal({ task, open, onClose, onSaved }) {
   const [form, setForm] = useState(blank);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [coursePreview, setCoursePreview] = useState(null); // { title, type } | { notFound: true }
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const debounceRef = useRef(null);
 
   useEffect(() => {
     setError("");
-    if (task) setForm({ ...task });
-    else setForm(blank);
+    setCoursePreview(null);
+    if (task) {
+      setForm({ ...task });
+      // Pre-fill preview when editing
+      if (task.courseId) {
+        courseService.getById(task.courseId)
+          .then(res => { if (res.data?.title) setCoursePreview({ title: res.data.title, type: res.data.type }); })
+          .catch(() => {});
+      }
+    } else {
+      setForm(blank);
+    }
   }, [task, open]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
+
+    if (name === "courseId") {
+      setCoursePreview(null);
+      clearTimeout(debounceRef.current);
+      if (value && Number(value) > 0) {
+        setPreviewLoading(true);
+        debounceRef.current = setTimeout(async () => {
+          try {
+            const res = await courseService.getById(Number(value));
+            const c = res.data;
+            if (c?.title) {
+              setCoursePreview({ title: c.title, type: c.type });
+            } else {
+              setCoursePreview({ notFound: true });
+            }
+          } catch {
+            setCoursePreview({ notFound: true });
+          } finally {
+            setPreviewLoading(false);
+          }
+        }, 400);
+      } else {
+        setPreviewLoading(false);
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -43,7 +81,6 @@ function TaskModal({ task, open, onClose, onSaved }) {
         totalMarks: Number(form.totalMarks),
       };
       if (isEdit) {
-        // use update DTO
         await taskService.update({
           taskId: payload.taskId,
           status: payload.status,
@@ -74,16 +111,45 @@ function TaskModal({ task, open, onClose, onSaved }) {
         <Alert message={error} />
         <div className="grid grid-cols-2 gap-4">
           {!isEdit && (
-            <InputField label="Course ID" name="courseId" type="number" value={form.courseId} onChange={handleChange} required min={1} />
+            <div className="col-span-2">
+              <InputField
+                label="Course ID"
+                name="courseId"
+                type="number"
+                value={form.courseId}
+                onChange={handleChange}
+                required
+                min={1}
+              />
+              {form.courseId && (
+                <div className="mt-2 px-3 py-2 rounded-lg bg-ink-900 border border-ink-600 flex items-center gap-2 min-h-[36px]">
+                  {previewLoading ? (
+                    <Spinner size="sm" />
+                  ) : coursePreview?.notFound ? (
+                    <span className="text-accent-rose text-xs font-mono">No course found with this ID</span>
+                  ) : coursePreview ? (
+                    <>
+                      <span className="text-accent-teal text-base">◎</span>
+                      <p className="text-white text-xs font-medium flex-1 truncate">{coursePreview.title}</p>
+                      {coursePreview.type && (
+                        <span className="text-xs font-mono text-accent-amber bg-accent-amber/10 px-1.5 py-0.5 rounded border border-accent-amber/20 whitespace-nowrap">
+                          {coursePreview.type}
+                        </span>
+                      )}
+                    </>
+                  ) : null}
+                </div>
+              )}
+            </div>
           )}
           <SelectField label="Type" name="type" value={form.type} onChange={handleChange} options={TASK_TYPES} />
-          <div className={`${!isEdit ? "col-span-2" : "col-span-2"}`}>
+          <div className="col-span-2">
             <InputField label="Title" name="title" value={form.title} onChange={handleChange} placeholder="Task title" required maxLength={160} />
           </div>
           <InputField label="Scheduled Date" name="scheduledDate" type="date" value={form.scheduledDate} onChange={handleChange} required />
           <InputField label="Submission Deadline" name="submissionDeadline" type="date" value={form.submissionDeadline} onChange={handleChange} required />
-          <InputField label="Start Time" name="startTime" type="time" value={form.startTime} onChange={handleChange} />
-          <InputField label="End Time" name="endTime" type="time" value={form.endTime} onChange={handleChange} />
+          <TimePickerField label="Start Time" name="startTime" value={form.startTime} onChange={handleChange} />
+          <TimePickerField label="End Time" name="endTime" value={form.endTime} onChange={handleChange} />
           <InputField label="Duration (min)" name="durationMinutes" type="number" value={form.durationMinutes} onChange={handleChange} required min={1} max={1440} />
           <InputField label="Total Marks" name="totalMarks" type="number" value={form.totalMarks} onChange={handleChange} required min={0} max={10000} />
           <div className="col-span-2">
@@ -98,7 +164,11 @@ function TaskModal({ task, open, onClose, onSaved }) {
         </div>
         <div className="flex gap-3 justify-end mt-2">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn-primary flex items-center gap-2" disabled={saving}>
+          <button
+            type="submit"
+            className="btn-primary flex items-center gap-2"
+            disabled={saving || coursePreview?.notFound}
+          >
             {saving && <Spinner size="sm" />} {isEdit ? "Save Changes" : "Create Task"}
           </button>
         </div>
@@ -185,11 +255,34 @@ export default function TasksPage() {
       <Table
         headers={["ID", "Title", "Type", "Course", "Deadline", "Marks", "Status", "Actions"]}
         loading={loading}
-        empty={
-          <tr><td colSpan={8}>
-            <EmptyState icon="◫" title="No tasks found" description="Create a task to get started." action={<button className="btn-primary" onClick={() => setModalOpen(true)}>+ New Task</button>} />
-          </td></tr>
-        }
+empty={
+  !loading && tasks.length === 0 ? (
+    <tr>
+      <td colSpan={8}>
+        <EmptyState
+          icon="◫"
+          title={
+            filters.courseId
+              ? `No tasks for Course #${filters.courseId}`
+              : "Enter Course ID"
+          }
+          description={
+            filters.courseId
+              ? "No tasks found for this course."
+              : "Please enter a Course ID to view tasks."
+          }
+          action={
+            !filters.courseId && (
+              <span className="text-slate-500 text-sm">
+                ↑ Enter Course ID above
+              </span>
+            )
+          }
+        />
+      </td>
+    </tr>
+  ) : null
+}
       >
         {tasks.map((t) => (
           <tr key={t.taskId} className="border-b border-ink-700/50 last:border-0 table-row-hover">
