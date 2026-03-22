@@ -41,7 +41,7 @@ public class UserController {
 		return ResponseEntity.ok(userService.getAllUsers(role, status));
 	}
 
-	@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+	@PreAuthorize("isAuthenticated()")
 	@GetMapping("/{userId}")
 	public ResponseEntity<UserDTO> getUserById(@PathVariable Long userId) {
 		return ResponseEntity.ok(userService.getUserById(userId));
@@ -49,7 +49,7 @@ public class UserController {
 
 
 
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
 	@PutMapping
 	public ResponseEntity<UserDTO> updateUserById(@Valid @RequestBody UserUpdateDTO data) {
 		return ResponseEntity.ok(userService.updateUserById(data)); 

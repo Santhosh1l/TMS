@@ -16,7 +16,6 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        // Fetch name from API if not already stored in context
         if (user?.userId && !user?.name) {
           userService.getById(user.userId)
             .then(res => { if (res.data?.name) updateUser({ name: res.data.name }); })
@@ -28,21 +27,37 @@ export default function EmployeeDashboard() {
           courseService.getAll({ active: true }),
           user?.userId ? taskAttemptService.getAll({ userId: user.userId }) : Promise.resolve({ data: [] }),
         ]);
+
         const courseList = cRes.status==="fulfilled" ? toArray(cRes.value.data) : [];
         setCourses(courseList);
+
         if (sRes.status==="fulfilled") setSessions(toArray(sRes.value.data));
         if (aRes.status==="fulfilled") setAttempts(toArray(aRes.value.data));
+
         if (user?.userId && courseList.length > 0) {
           const eRes = await Promise.allSettled(
             courseList.slice(0,6).map(c => enrollService.getAll(c.courseId, { userId: user.userId }))
           );
-          setEnrollments(eRes.filter(r=>r.status==="fulfilled")
-            .flatMap(r=>toArray(r.value.data)).filter(e=>e.userId===user.userId));
+
+          setEnrollments(
+            eRes.filter(r=>r.status==="fulfilled")
+              .flatMap(r=>toArray(r.value.data))
+              .filter(e=>e.userId===user.userId)
+          );
         }
+
       } finally { setLoading(false); }
     };
+
     fetchAll();
   }, [user]);
+
+  // 🔥 ONLY ADDITION (logic)
+  const enrolledCourseIds = enrollments.map(e => e.courseId);
+
+  const filteredSessions = sessions.filter(s =>
+    enrolledCourseIds.includes(s.courseId)
+  );
 
   const pending   = attempts.filter(a => a.status==="IN_PROGRESS"||a.status==="NOT_STARTED").length;
   const submitted = attempts.filter(a => a.status==="SUBMITTED").length;
@@ -56,8 +71,10 @@ export default function EmployeeDashboard() {
         <div>
           <p className="text-slate-500 text-xs font-mono uppercase tracking-widest mb-1">Employee Dashboard</p>
           <h1 className="font-display font-bold text-3xl text-white">
-            {user?.name ? `Welcome, ${user.name.split(" ")[0]}` : "My Training"}
-          </h1>
+  {user?.name 
+    ? `Hello ${user.name.split(" ")[0]} ` 
+    : "Hello User"}
+</h1>
           <p className="text-slate-400 text-sm mt-1">Track your courses, sessions and tasks</p>
         </div>
         <div className="glass-card px-4 py-2 flex items-center gap-2">
@@ -94,9 +111,9 @@ export default function EmployeeDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { label:"My Courses",  value:enrollments.length, sub:`${completed} completed`, color:"text-accent-teal",  icon:"◎" },
-          { label:"Sessions",    value:sessions.length,    sub:"upcoming",               color:"text-accent-amber", icon:"◷" },
-          { label:"Pending",     value:pending,            sub:"tasks to do",            color:"text-accent-rose",  icon:"◫" },
-          { label:"Submitted",   value:submitted,          sub:"awaiting review",        color:"text-brand",        icon:"✓" },
+          { label:"Sessions",    value:filteredSessions.length, sub:"upcoming", color:"text-accent-amber", icon:"◷" },
+          { label:"Pending",     value:pending, sub:"tasks to do", color:"text-accent-rose",  icon:"◫" },
+          { label:"Submitted",   value:submitted, sub:"awaiting review", color:"text-brand", icon:"✓" },
         ].map(({ label, value, sub, color, icon }) => (
           <div key={label} className="glass-card p-5 border border-brand/10 hover:border-brand/25 transition-all">
             <div className="flex items-center justify-between mb-2">
@@ -110,8 +127,7 @@ export default function EmployeeDashboard() {
           </div>
         ))}
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+ 
         {/* My Courses */}
         <div>
           <h2 className="font-display font-semibold text-lg text-white mb-3">MY COURSES</h2>
@@ -145,18 +161,17 @@ export default function EmployeeDashboard() {
             })}
           </div>
         </div>
-
-        {/* Upcoming Sessions */}
-        <div>
-          <h2 className="font-display font-semibold text-lg text-white mb-3">UPCOMING SESSIONS</h2>
-          <div className="glass-card divide-y divide-ink-700/50 border border-brand/10">
-            {loading ? <div className="flex justify-center py-8"><Spinner /></div>
-            : sessions.length === 0 ? (
-              <div className="text-center py-10">
-                <p className="text-3xl mb-2 opacity-30">◷</p>
-                <p className="text-slate-500 text-sm">No upcoming sessions</p>
-              </div>
-            ) : sessions.slice(0,5).map(s => (
+      {/* Upcoming Sessions */}
+      <div>
+        <h2 className="font-display font-semibold text-lg text-white mb-3">UPCOMING SESSIONS</h2>
+        <div className="glass-card divide-y divide-ink-700/50 border border-brand/10">
+          {loading ? <div className="flex justify-center py-8"><Spinner /></div>
+          : filteredSessions.length === 0 ? (
+            <div className="text-center py-10">
+              <p className="text-3xl mb-2 opacity-30">◷</p>
+              <p className="text-slate-500 text-sm">No upcoming sessions</p>
+            </div>
+          ) : filteredSessions.slice(0,5).map(s => (
               <div key={s.sessionId} className="p-4 hover:bg-ink-700/50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div>
@@ -173,67 +188,9 @@ export default function EmployeeDashboard() {
                 )}
               </div>
             ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pending Tasks */}
-        <div>
-          <h2 className="font-display font-semibold text-lg text-white mb-3">MY PENDING TASKS</h2>
-          <div className="glass-card divide-y divide-ink-700/50 border border-brand/10">
-            {loading ? <div className="flex justify-center py-8"><Spinner /></div>
-            : pending === 0 ? (
-              <div className="text-center py-10">
-                <p className="text-3xl mb-2 opacity-30">◫</p>
-                <p className="text-slate-500 text-sm">All caught up!</p>
-              </div>
-            ) : attempts.filter(a=>a.status==="NOT_STARTED"||a.status==="IN_PROGRESS").slice(0,5).map(a => (
-              <div key={a.taskAttemptId} className="p-4 hover:bg-ink-700/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white text-sm font-medium">Task #{a.taskId}</p>
-                    <p className="text-slate-500 text-xs font-mono mt-0.5">{a.type} · {a.attemptedAt||"—"}</p>
-                  </div>
-                  <StatusBadge status={a.status} />
-                </div>
-                {a.feedback && <p className="text-slate-400 text-xs mt-1.5 italic">"{a.feedback}"</p>}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Certificates */}
-        <div>
-          <h2 className="font-display font-semibold text-lg text-white mb-3">MY CERTIFICATES</h2>
-          <div className="glass-card divide-y divide-ink-700/50 border border-brand/10">
-            {loading ? <div className="flex justify-center py-8"><Spinner /></div>
-            : completed === 0 ? (
-              <div className="text-center py-10">
-                <p className="text-3xl mb-2 opacity-30">🎓</p>
-                <p className="text-slate-500 text-sm">Complete a course to earn certificates</p>
-                <p className="text-slate-600 text-xs mt-1">{enrollments.length > 0 ? `${enrollments.length} in progress` : "Enroll to get started"}</p>
-              </div>
-            ) : enrollments.filter(e=>e.status==="COMPLETED").map(e => {
-              const course = courses.find(c => c.courseId === e.courseId);
-              return (
-                <div key={e.enrollmentId} className="p-4 hover:bg-ink-700/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-accent-teal/10 border border-accent-teal/30 flex items-center justify-center flex-shrink-0">
-                      <span className="text-lg">🎓</span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-white text-sm">{course?.title||`Course #${e.courseId}`}</p>
-                      <p className="text-slate-500 text-xs font-mono mt-0.5">Completed · {e.completionDate||"N/A"}</p>
-                    </div>
-                    <StatusBadge status="COMPLETED" />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
       </div>
     </div>
+    
   );
 }
