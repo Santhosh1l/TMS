@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { sessionService, taskAttemptService, courseService, enrollService, toArray } from "../../services/api";
+import { sessionService, taskAttemptService, courseService, enrollService, userService, toArray } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { Spinner, StatusBadge } from "../../components/common";
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [enrollments, setEnrollments] = useState([]);
   const [sessions, setSessions]       = useState([]);
   const [attempts, setAttempts]       = useState([]);
@@ -16,6 +16,13 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
+        // Fetch name from API if not already stored in context
+        if (user?.userId && !user?.name) {
+          userService.getById(user.userId)
+            .then(res => { if (res.data?.name) updateUser({ name: res.data.name }); })
+            .catch(() => {});
+        }
+
         const [sRes, cRes, aRes] = await Promise.allSettled([
           sessionService.getAll({ active: true }),
           courseService.getAll({ active: true }),
@@ -48,7 +55,9 @@ export default function EmployeeDashboard() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <p className="text-slate-500 text-xs font-mono uppercase tracking-widest mb-1">Employee Dashboard</p>
-          <h1 className="font-display font-bold text-3xl text-white">My Training</h1>
+          <h1 className="font-display font-bold text-3xl text-white">
+            {user?.name ? `Welcome, ${user.name.split(" ")[0]}` : "My Training"}
+          </h1>
           <p className="text-slate-400 text-sm mt-1">Track your courses, sessions and tasks</p>
         </div>
         <div className="glass-card px-4 py-2 flex items-center gap-2">

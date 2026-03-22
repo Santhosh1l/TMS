@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
-import { authService } from "../services/api";
+import { authService, userService } from "../services/api";
 
 const AuthContext = createContext(null);
 
@@ -32,6 +32,14 @@ const getRoleFromToken = (token) => {
   return null;
 };
 
+// Extract name from JWT claims (Spring may put it as "name", "sub", or "email")
+const getNameFromToken = (token) => {
+  const decoded = decodeToken(token);
+  if (decoded.name && typeof decoded.name === "string") return decoded.name;
+  // sub is often the email — don't use it as a display name
+  return null;
+};
+
 // Parse backend errors into a clean, user-friendly message
 const parseError = (err) => {
   const data = err.response?.data;
@@ -56,14 +64,20 @@ export const AuthProvider = ({ children }) => {
     const stored = localStorage.getItem("tms_user");
     if (!stored) return null;
     const parsed = JSON.parse(stored);
-    // Migration: if role exists but has no ROLE_ prefix, fix it
-    // Also re-decode from token if role is missing or wrong
     const token = localStorage.getItem("tms_token");
     if (token) {
       const roleFromToken = getRoleFromToken(token);
       if (roleFromToken && parsed.role !== roleFromToken) {
         parsed.role = roleFromToken;
         localStorage.setItem("tms_user", JSON.stringify(parsed));
+      }
+      // Backfill name from token if missing
+      if (!parsed.name) {
+        const nameFromToken = getNameFromToken(token);
+        if (nameFromToken) {
+          parsed.name = nameFromToken;
+          localStorage.setItem("tms_user", JSON.stringify(parsed));
+        }
       }
     }
     return parsed;
@@ -80,7 +94,17 @@ export const AuthProvider = ({ children }) => {
       const { token, userId, expiration } = res.data;
       localStorage.setItem("tms_token", token);
       const role = getRoleFromToken(token);
-      const userObj = { userId, expiration, role };
+      // Try to get name from token first, then fetch from API
+      let name = getNameFromToken(token);
+      if (!name) {
+        try {
+          const userRes = await userService.getById(userId);
+          name = userRes.data?.name || null;
+        } catch {
+          // non-fatal — greet without name if fetch fails
+        }
+      }
+      const userObj = { userId, expiration, role, name };
       localStorage.setItem("tms_user", JSON.stringify(userObj));
       setToken(token);
       setUser(userObj);
@@ -102,7 +126,9 @@ export const AuthProvider = ({ children }) => {
       const { token, userId, expiration } = res.data;
       localStorage.setItem("tms_token", token);
       const role = getRoleFromToken(token);
-      const userObj = { userId, expiration, role };
+      // Use the submitted name directly — no need to fetch
+      const name = data.name || getNameFromToken(token) || null;
+      const userObj = { userId, expiration, role, name };
       localStorage.setItem("tms_user", JSON.stringify(userObj));
       setToken(token);
       setUser(userObj);
@@ -116,6 +142,14 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const updateUser = useCallback((patch) => {
+    setUser(prev => {
+      const updated = { ...prev, ...patch };
+      localStorage.setItem("tms_user", JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem("tms_token");
     localStorage.removeItem("tms_user");
@@ -126,7 +160,7 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{
       user, token, loading, error,
-      login, register, logout,
+      login, register, logout, updateUser,
       isAuthenticated: !!token,
       role: user?.role || null,
     }}>

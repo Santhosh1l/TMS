@@ -41,13 +41,13 @@ public class UserController {
 		return ResponseEntity.ok(userService.getAllUsers(role, status));
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
 	@GetMapping("/{userId}")
 	public ResponseEntity<UserDTO> getUserById(@PathVariable Long userId) {
 		return ResponseEntity.ok(userService.getUserById(userId));
 	}
 
-	// UPDATE MAPPINGS
+
 
 	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping
@@ -57,7 +57,7 @@ public class UserController {
 
 	// DELETE MAPPINGS
 
-	@PreAuthorize("hasAuthority('ROLE_ADMIN')")
+	@PreAuthorize("hasAuthority('ADMIN')")
 	@DeleteMapping("/{userId}")
 	public ResponseEntity<String> deleteById(@PathVariable Long userId) {
 		return ResponseEntity.ok(userService.deleteById(userId));

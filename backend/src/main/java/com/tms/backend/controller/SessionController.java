@@ -33,7 +33,7 @@ public class SessionController {
 		this.sessionService = sessionService;
 	}
 
-	// GET MAPPINGS
+
 
 	@GetMapping
 	@PreAuthorize("isAuthenticated()")
@@ -51,7 +51,7 @@ public class SessionController {
 		return ResponseEntity.ok(sessionService.getSessionById(sessionId));
 	}
 
-	// POST MAPPINGS
+
 
 	@PostMapping
 	@PreAuthorize("hasAuthority('ROLE_ADMIN')")
@@ -59,7 +59,7 @@ public class SessionController {
 		return ResponseEntity.status(201).body(sessionService.createSession(req));
 	}
 
-	// UPDATE MAPPINGS
+
 
 	@PutMapping
 	@PreAuthorize("hasRole('ADMIN')")
@@ -73,7 +73,7 @@ public class SessionController {
 		return ResponseEntity.ok(sessionService.updateRecurringStatus(sessionId));
 	}
 
-	// DELETE MAPPINGS
+
 
 	@DeleteMapping("/{sessionId}")
 	@PreAuthorize("hasRole('ADMIN')")

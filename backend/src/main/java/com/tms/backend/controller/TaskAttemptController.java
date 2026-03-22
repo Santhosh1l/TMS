@@ -35,7 +35,7 @@ public class TaskAttemptController {
 		this.tastAttemptService = tastAttemptService;
 	}
 
-	// GET MAPPINGS
+
 
 	@GetMapping
 	@PreAuthorize("hasAnyRole('ADMIN', 'CO_TRAINER')")
@@ -50,7 +50,6 @@ public class TaskAttemptController {
 		return ResponseEntity.ok(tastAttemptService.getTaskAttemptByTaskId(attemptId));
 	}
 
-	// POST MAPPINGS
 
 	@PostMapping
 	@PreAuthorize("hasAnyRole('EMPLOYEE','ADMIN')")
@@ -58,7 +57,6 @@ public class TaskAttemptController {
 		return ResponseEntity.status(201).body(tastAttemptService.createTaskAttemptByTaskType(dto));
 	}
 
-	// PUT MAPPINGS
 
 	@PutMapping
 	@PreAuthorize("hasAnyRole('ADMIN', 'CO_TRAINER')")
@@ -66,7 +64,7 @@ public class TaskAttemptController {
 		return ResponseEntity.ok(tastAttemptService.updateTaskAttempt(dto));
 	}
 
-	// DELETE MAPPINGS
+
 
 	@DeleteMapping("/{attemptId}")
 	@PreAuthorize("hasAnyRole('ADMIN','CO_TRAINER')")

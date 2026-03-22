@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { courseService, userService, sessionService, taskService, toArray } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 import { Spinner, StatusBadge } from "../../components/common";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [stats, setStats]             = useState({});
   const [recentCourses, setRecentCourses] = useState([]);
   const [recentUsers, setRecentUsers]     = useState([]);
@@ -39,7 +41,9 @@ export default function AdminDashboard() {
           <p className="text-slate-500 text-xs font-mono uppercase tracking-widest mb-1">
             {new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
           </p>
-          <h1 className="font-display font-bold text-3xl text-white">System Overview</h1>
+          <h1 className="font-display font-bold text-3xl text-white">
+            {user?.name ? `Welcome, ${user.name.split(" ")[0]}` : "System Overview"}
+          </h1>
           <p className="text-slate-400 text-sm mt-1">Full control of the Training Management System</p>
         </div>
         <div className="glass-card px-4 py-2 flex items-center gap-2">

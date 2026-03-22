@@ -34,7 +34,9 @@ export default function CoTrainerDashboard() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <p className="text-slate-500 text-xs font-mono uppercase tracking-widest mb-1">Co-Trainer Dashboard</p>
-          <h1 className="font-display font-bold text-3xl text-white">Task Management</h1>
+          <h1 className="font-display font-bold text-3xl text-white">
+            {user?.name ? `Welcome, ${user.name.split(" ")[0]}` : "Task Management"}
+          </h1>
           <p className="text-slate-400 text-sm mt-1">Create and manage daily tasks and weekly assignments</p>
         </div>
         <div className="flex items-center gap-3">

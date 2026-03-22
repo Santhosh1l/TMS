@@ -35,7 +35,6 @@ public class AttendanceController {
 		this.attendanceService = attendanceService;
 	}
 
-	// GET MAPPINGS
 
 	@GetMapping
 	@PreAuthorize("hasAnyRole('ADMIN','TRAINER','CO_TRAINER')")
@@ -51,7 +50,7 @@ public class AttendanceController {
 		return ResponseEntity.status(200).body(attendanceService.getAttendanceById(attendanceId));
 	}
 
-	// POST MAPPINGS
+
 
 	@PostMapping
 	@PreAuthorize("hasRole('ADMIN')")
@@ -61,7 +60,7 @@ public class AttendanceController {
 		return ResponseEntity.status(201).body(attendanceService.createAttendance(dto));
 	}
 
-	// UPDATE MAPPINGS
+
 
 	@PutMapping
 	@PreAuthorize("hasRole('ADMIN')")
@@ -78,7 +77,6 @@ public class AttendanceController {
 		return ResponseEntity.ok(attendanceService.updateAttendanceStatus(attendanceId, status));
 	}
 
-	// DELETE MAPPINGS
 
 	@DeleteMapping("/{attendanceId}")
 	@PreAuthorize("hasRole('ADMIN')")

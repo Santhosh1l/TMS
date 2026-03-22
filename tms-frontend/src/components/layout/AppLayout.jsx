@@ -34,10 +34,7 @@ const NAV_BY_ROLE = {
   ],
   ROLE_EMPLOYEE: [
     { group: "Overview",  items: [{ to: "/dashboard", label: "Dashboard", icon: "⬡" }] },
-    { group: "Training",  items: [
-      { to: "/courses",  label: "My Courses", icon: "◎" },
-      { to: "/sessions", label: "Sessions",   icon: "◷" },
-    ]},
+    
   ],
 };
 
@@ -50,7 +47,7 @@ const ROLE_COLORS = {
 };
 
 export default function AppLayout() {
-  const { logout, role } = useAuth();
+  const { logout, role, user } = useAuth();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -77,9 +74,14 @@ export default function AppLayout() {
 
         {/* Role badge */}
         {!collapsed && role && (
-          <div className="mx-3 mt-3 px-3 py-2 rounded-lg bg-ink-800 border border-ink-600 flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${roleColor.dot} animate-pulse flex-shrink-0`} />
-            <span className={`text-xs font-mono font-semibold ${roleColor.text}`}>{roleColor.label}</span>
+          <div className="mx-3 mt-3 px-3 py-2 rounded-lg bg-ink-800 border border-ink-600">
+            <div className="flex items-center gap-2 mb-0.5">
+              <div className={`w-2 h-2 rounded-full ${roleColor.dot} animate-pulse flex-shrink-0`} />
+              <span className={`text-xs font-mono font-semibold ${roleColor.text}`}>{roleColor.label}</span>
+            </div>
+            {user?.name && (
+              <p className="text-xs text-slate-300 font-body truncate mt-0.5 pl-4">{user.name}</p>
+            )}
           </div>
         )}
 

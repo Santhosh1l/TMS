@@ -30,7 +30,9 @@ export default function TrainerDashboard() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <p className="text-slate-500 text-xs font-mono uppercase tracking-widest mb-1">Trainer Dashboard</p>
-          <h1 className="font-display font-bold text-3xl text-white">Welcome, Trainer</h1>
+          <h1 className="font-display font-bold text-3xl text-white">
+            {user?.name ? `Welcome, ${user.name.split(" ")[0]}` : "Welcome, Trainer"}
+          </h1>
           <p className="text-slate-400 text-sm mt-1">Manage your sessions and track attendance</p>
         </div>
         <div className="glass-card px-4 py-2 flex items-center gap-2">

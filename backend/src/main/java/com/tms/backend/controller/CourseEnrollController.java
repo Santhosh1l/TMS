@@ -44,10 +44,13 @@ public class CourseEnrollController {
 	// CREATE
 	@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
 	@PostMapping
-	public ResponseEntity<UserCourseEnrollDTO> enrollUser(@Valid @RequestBody UserCourseEnrollDTO dto) {
+	public ResponseEntity<UserCourseEnrollDTO> enrollUser(
+			@PathVariable Long courseId,
+			@Valid @RequestBody UserCourseEnrollDTO dto
+	) {
+		dto.setCourseId(courseId);
 		return ResponseEntity.status(201).body(courseEnrollService.enrollUserCourse(dto));
 	}
-
 	// UPDATE PROGRESS
 	@PreAuthorize("hasAnyRole('TRAINER','ADMIN')")
 	@PutMapping

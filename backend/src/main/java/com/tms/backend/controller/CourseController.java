@@ -33,7 +33,7 @@ public class CourseController {
 		this.courseService = courseService;
 	}
 
-	// GET MAPPINGS
+
 
 	@GetMapping
 
@@ -61,7 +61,7 @@ public class CourseController {
 
 	}
 
-	// UPDATE MAPPINGS
+
 
 	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping
@@ -69,7 +69,6 @@ public class CourseController {
 		return ResponseEntity.status(200).body(courseService.updateCourse(dto));
 	}
 
-	// DELETE MAPPINGS
 
 	@PreAuthorize("hasRole('ADMIN')")
 	@DeleteMapping("/{id}")

@@ -36,8 +36,7 @@ public class TaskController {
 
 		this.taskService = taskService;
 	}
-	
-	//GET MAPPINGS
+
 	
 	@GetMapping
 	@PreAuthorize("isAuthenticated()")
@@ -57,7 +56,7 @@ public class TaskController {
 
 	}
 
-	//POST MAPPINGS
+
 
 	@PreAuthorize("hasAnyRole('ADMIN', 'CO_TRAINER')")
 	@PostMapping
@@ -65,7 +64,7 @@ public class TaskController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(taskService.createTaskByTaskType(dto));
 	}
 	
-	//UPDATE MAPPINGS
+
 
 	@PreAuthorize("hasAnyRole('ADMIN', 'CO_TRAINER')")
 	@PutMapping
@@ -74,8 +73,7 @@ public class TaskController {
 	}
 	
 	
-	//DELETE MAPPINGS
-	
+
 	@PreAuthorize("hasAnyRole('ADMIN', 'CO_TRAINER')")
 	@DeleteMapping("/{taskId}")
 	public ResponseEntity<Void> deleteTask(@PathVariable Long taskId){

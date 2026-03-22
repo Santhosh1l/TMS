@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { enrollService, toArray } from "../../services/api";
+import { enrollService, userService, toArray } from "../../services/api";
 import {
   PageHeader, Table, StatusBadge, Modal, ConfirmDialog,
   Alert, EmptyState, Spinner, InputField, SelectField,
@@ -13,13 +13,46 @@ function EnrollModal({ courseId, open, onClose, onSaved }) {
   const [form, setForm] = useState({ userId: "", memberRole: "EMPLOYEE", status: "ENROLLED", activeFrom: "", activeTo: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [userPreview, setUserPreview] = useState(null); // { name, role }
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const debounceRef = useRef(null);
 
   useEffect(() => {
     setForm({ userId: "", memberRole: "EMPLOYEE", status: "ENROLLED", activeFrom: "", activeTo: "" });
     setError("");
+    setUserPreview(null);
   }, [open]);
 
-  const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+
+    // Live user lookup when typing the ID
+    if (name === "userId") {
+      setUserPreview(null);
+      clearTimeout(debounceRef.current);
+      if (value && Number(value) > 0) {
+        setPreviewLoading(true);
+        debounceRef.current = setTimeout(async () => {
+          try {
+            const res = await userService.getById(Number(value));
+            const u = res.data;
+            if (u?.name) {
+              setUserPreview({ name: u.name, role: u.role?.replace("ROLE_", "") || "—", status: u.status });
+            } else {
+              setUserPreview({ notFound: true });
+            }
+          } catch {
+            setUserPreview({ notFound: true });
+          } finally {
+            setPreviewLoading(false);
+          }
+        }, 400);
+      } else {
+        setPreviewLoading(false);
+      }
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,7 +73,46 @@ function EnrollModal({ courseId, open, onClose, onSaved }) {
     <Modal open={open} onClose={onClose} title="Enroll User">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Alert message={error} />
-        <InputField label="User ID" name="userId" type="number" value={form.userId} onChange={handleChange} placeholder="User ID" required min={1} />
+
+        {/* User ID field + live preview */}
+        <div>
+          <InputField
+            label="User ID"
+            name="userId"
+            type="number"
+            value={form.userId}
+            onChange={handleChange}
+            placeholder="Enter user ID"
+            required
+            min={1}
+          />
+          {/* Preview card */}
+          {form.userId && (
+            <div className="mt-2 px-3 py-2.5 rounded-lg bg-ink-900 border border-ink-600 flex items-center gap-3 min-h-[42px]">
+              {previewLoading ? (
+                <Spinner size="sm" />
+              ) : userPreview?.notFound ? (
+                <span className="text-accent-rose text-xs font-mono">No user found with this ID</span>
+              ) : userPreview ? (
+                <>
+                  <div className="w-7 h-7 rounded-full bg-brand/20 border border-brand/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-brand text-xs font-bold">{userPreview.name.charAt(0).toUpperCase()}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{userPreview.name}</p>
+                    <p className="text-slate-500 text-xs font-mono">{userPreview.role}</p>
+                  </div>
+                  <span className={`text-xs font-mono px-2 py-0.5 rounded-full border ${
+                    userPreview.status === "ACTIVE"
+                      ? "text-accent-teal bg-accent-teal/10 border-accent-teal/30"
+                      : "text-slate-400 bg-slate-400/10 border-slate-400/30"
+                  }`}>{userPreview.status}</span>
+                </>
+              ) : null}
+            </div>
+          )}
+        </div>
+
         <SelectField label="Role" name="memberRole" value={form.memberRole} onChange={handleChange} options={COURSE_MEMBER_ROLES} />
         <SelectField label="Status" name="status" value={form.status} onChange={handleChange} options={COURSE_MEMBER_STATUSES} />
         <div className="grid grid-cols-2 gap-4">
@@ -49,7 +121,7 @@ function EnrollModal({ courseId, open, onClose, onSaved }) {
         </div>
         <div className="flex gap-3 justify-end mt-2">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn-primary flex items-center gap-2" disabled={saving}>
+          <button type="submit" className="btn-primary flex items-center gap-2" disabled={saving || userPreview?.notFound}>
             {saving && <Spinner size="sm" />} Enroll
           </button>
         </div>
@@ -161,9 +233,22 @@ export default function EnrollmentsPage() {
         headers={["ID", "User ID", "Role", "Status", "Progress", "Assigned On", "Actions"]}
         loading={loading}
         empty={
-          <tr><td colSpan={7}>
-            <EmptyState icon="◎" title="No enrollments" description="Enroll users to this course." action={<button className="btn-primary" onClick={() => setEnrollOpen(true)}>+ Enroll User</button>} />
-          </td></tr>
+          !loading && enrollments.length === 0 ? (
+            <tr>
+              <td colSpan={7}>
+                <EmptyState
+                  icon="◎"
+                  title="No enrollments"
+                  description="Enroll users to this course."
+                  action={
+                    <button className="btn-primary" onClick={() => setEnrollOpen(true)}>
+                      + Enroll User
+                    </button>
+                  }
+                />
+              </td>
+            </tr>
+          ) : null
         }
       >
         {enrollments.map((e) => (

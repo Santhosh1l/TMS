@@ -30,7 +30,7 @@ public class CertificateController {
 		this.certificateService = certificateService;
 	}
 	
-	//GET MAPPINGS
+
 	
 	@GetMapping
 	public ResponseEntity<List<CertificateDTO>> getAllCertificatesByEnrollmentId(
@@ -45,7 +45,6 @@ public class CertificateController {
 		return ResponseEntity.ok(certificateService.getCertificateById(id));
 	}
 
-	//POST MAPPINGS
 
 	@PostMapping
 	public ResponseEntity<CertificateDTO> issueCertificateForEnrollment(@Valid @RequestBody CertificateDTO dto) {
@@ -53,7 +52,6 @@ public class CertificateController {
 		return ResponseEntity.status(201).body(certificateService.issueCertificateForEnrollment(dto)); 
 	}
 
-	//DELETE MAPPINGS
 
 	@PreAuthorize("hasAnyAuthority('ADMIN','TRAINER','MANAGER')")
 	@DeleteMapping("/{id}")
