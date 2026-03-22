@@ -5,7 +5,7 @@ import {
   Alert, EmptyState, Spinner, InputField, SelectField,
 } from "../../components/common";
 import { USER_ROLES, USER_STATUSES } from "../../utils/enums";
-
+ 
 // ─── Add User Modal ───────────────────────────────────────────────
 function AddUserModal({ open, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -14,7 +14,7 @@ function AddUserModal({ open, onClose, onSaved }) {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
+ 
   useEffect(() => {
     if (open) {
       setForm({
@@ -25,10 +25,10 @@ function AddUserModal({ open, onClose, onSaved }) {
       setError("");
     }
   }, [open]);
-
+ 
   const handleChange = (e) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-
+ 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -51,41 +51,49 @@ function AddUserModal({ open, onClose, onSaved }) {
       setSaving(false);
     }
   };
-
+ 
   return (
     <Modal open={open} onClose={onClose} title="Add New User" size="lg">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Alert message={error} />
-
+ 
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <InputField label="Full Name" name="name" value={form.name} onChange={handleChange} required />
           </div>
-
+ 
           <div className="col-span-2">
             <InputField label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
           </div>
-
+ 
           <div className="col-span-2">
             <InputField label="Password" name="password" type="password" value={form.password} onChange={handleChange} required />
           </div>
-
-          <select name="role" value={form.role} onChange={handleChange} className="input-field">
-            {USER_ROLES.map(r => <option key={r} value={r}>{r.replace("ROLE_", "")}</option>)}
-          </select>
-
-          <select name="status" value={form.status} onChange={handleChange} className="input-field">
-            {USER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-
-          <InputField name="department" value={form.department} onChange={handleChange} placeholder="Department" />
-          <InputField name="location" value={form.location} onChange={handleChange} placeholder="Location" />
-
+ 
+          <SelectField
+            label="Role"
+            name="role"
+            value={form.role}
+            onChange={handleChange}
+            options={USER_ROLES}
+          />
+ 
+          <SelectField
+            label="Status"
+            name="status"
+            value={form.status}
+            onChange={handleChange}
+            options={USER_STATUSES}
+          />
+ 
+          <InputField label="Department" name="department" value={form.department} onChange={handleChange} placeholder="Department" />
+          <InputField label="Location" name="location" value={form.location} onChange={handleChange} placeholder="Location" />
+ 
           <div className="col-span-2">
-            <InputField name="managerId" type="number" value={form.managerId} onChange={handleChange} placeholder="Manager ID" />
+            <InputField label="Manager ID" name="managerId" type="number" value={form.managerId} onChange={handleChange} placeholder="Manager ID" />
           </div>
         </div>
-
+ 
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose}>Cancel</button>
           <button type="submit" disabled={saving}>
@@ -96,31 +104,31 @@ function AddUserModal({ open, onClose, onSaved }) {
     </Modal>
   );
 }
-
+ 
 // ─── Edit User Modal ─────────────────────────────────────────────
 function EditUserModal({ user, open, onClose, onSaved }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
+ 
   useEffect(() => {
     if (user) {
       setForm({
         userId: user.userId,
         name: user.name || "",
         email: user.email || "",
-        role: user.role,
-        status: user.status,
+        role: user.role || "ROLE_EMPLOYEE",
+        status: user.status || "ACTIVE",
         department: user.department || "",
         location: user.location || "",
         managerId: user.managerId || "",
       });
     }
   }, [user]);
-
+ 
   const handleChange = (e) =>
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-
+ 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -138,37 +146,83 @@ function EditUserModal({ user, open, onClose, onSaved }) {
       setSaving(false);
     }
   };
-
+ 
   return (
-    <Modal open={open} onClose={onClose} title={`Edit User — ${user?.name}`}>
+    <Modal open={open} onClose={onClose} title={`Edit User — ${user?.name ?? ""}`}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Alert message={error} />
-
+ 
         <div className="grid grid-cols-2 gap-4">
-
-          {/* ✅ NEW */}
+          {/* Optional: Show the User ID read-only */}
           <div className="col-span-2">
-            <InputField label="Full Name" name="name" value={form.name || ""} onChange={handleChange} />
+            <InputField
+              label="User ID"
+              name="userId"
+              value={form.userId ?? ""}
+              readOnly
+            />
           </div>
-
+ 
           <div className="col-span-2">
-            <InputField label="Email" name="email" type="email" value={form.email || ""} onChange={handleChange} />
+            <InputField
+              label="Full Name"
+              name="name"
+              value={form.name || ""}
+              onChange={handleChange}
+            />
           </div>
-
-          <select name="role" value={form.role || ""} onChange={handleChange} className="input-field">
-            {USER_ROLES.map(r => <option key={r} value={r}>{r.replace("ROLE_", "")}</option>)}
-          </select>
-
-          <SelectField label="Status" name="status" value={form.status} onChange={handleChange} options={USER_STATUSES} />
-
-          <InputField name="department" value={form.department} onChange={handleChange} />
-          <InputField name="location" value={form.location} onChange={handleChange} />
-
+ 
           <div className="col-span-2">
-            <InputField name="managerId" type="number" value={form.managerId} onChange={handleChange} />
+            <InputField
+              label="Email"
+              name="email"
+              type="email"
+              value={form.email || ""}
+              onChange={handleChange}
+            />
+          </div>
+ 
+          <SelectField
+            label="Role"
+            name="role"
+            value={form.role || ""}
+            onChange={handleChange}
+            options={USER_ROLES}
+          />
+ 
+          <SelectField
+            label="Status"
+            name="status"
+            value={form.status || ""}
+            onChange={handleChange}
+            options={USER_STATUSES}
+          />
+ 
+          <InputField
+            label="Department"
+            name="department"
+            value={form.department || ""}
+            onChange={handleChange}
+          />
+ 
+          <InputField
+            label="Location"
+            name="location"
+            value={form.location || ""}
+            onChange={handleChange}
+          />
+ 
+          <div className="col-span-2">
+            <InputField
+              label="Manager ID"
+              name="managerId"
+              type="number"
+              value={form.managerId || ""}
+              onChange={handleChange}
+            />
           </div>
         </div>
-
+ 
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose}>Cancel</button>
           <button type="submit" disabled={saving}>
@@ -179,6 +233,7 @@ function EditUserModal({ user, open, onClose, onSaved }) {
     </Modal>
   );
 }
+ 
 // ─── Main Page ────────────────────────────────────────────────────
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -189,7 +244,7 @@ export default function UsersPage() {
   const [deleteUser, setDeleteUser] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [alert, setAlert] = useState({ type: "", message: "" });
-
+ 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -204,9 +259,9 @@ export default function UsersPage() {
       setLoading(false);
     }
   }, [filters]);
-
+ 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
-
+ 
   const handleDelete = async () => {
     setDeleting(true);
     try {
@@ -220,7 +275,7 @@ export default function UsersPage() {
       setDeleting(false);
     }
   };
-
+ 
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -232,7 +287,7 @@ export default function UsersPage() {
           </button>
         }
       />
-
+ 
       {/* Filters */}
       <div className="flex gap-3 mb-6 flex-wrap">
         <select
@@ -253,54 +308,81 @@ export default function UsersPage() {
           <option value="">All Statuses</option>
           {USER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <span className="text-slate-500 text-xs font-mono self-center">{users.length} user{users.length !== 1 ? "s" : ""}</span>
+        <span className="text-slate-500 text-xs font-mono self-center">
+          {users.length} user{users.length !== 1 ? "s" : ""}
+        </span>
       </div>
-
-      {alert.message && <div className="mb-4"><Alert type={alert.type} message={alert.message} /></div>}
-
+ 
+      {alert.message && (
+        <div className="mb-4">
+          <Alert type={alert.type} message={alert.message} />
+        </div>
+      )}
+ 
       <Table
         headers={["ID", "Name", "Email", "Role", "Department", "Status", "Actions"]}
         loading={loading}
-       empty={
-  (!loading && users.length === 0) ? (
-    <tr>
-      <td colSpan={7}>
-        <EmptyState
-          icon="◈"
-          title="No users found"
-          description="Try adjusting your filters or add a new user."
-          action={
-            <button
-              className="btn-primary"
-              onClick={() => setAddOpen(true)}
-            >
-              + Add User
-            </button>
-          }
-        />
-      </td>
-    </tr>
-  ) : null
-}
+        empty={
+          (!loading && users.length === 0) ? (
+            <tr>
+              <td colSpan={7}>
+                <EmptyState
+                  icon="◈"
+                  title="No users found"
+                  description="Try adjusting your filters or add a new user."
+                  action={
+                    <button
+                      className="btn-primary"
+                      onClick={() => setAddOpen(true)}
+                    >
+                      + Add User
+                    </button>
+                  }
+                />
+              </td>
+            </tr>
+          ) : null
+        }
       >
-        {users.map((u) => (
-          <tr key={u.userId} className="border-b border-ink-700/50 last:border-0 table-row-hover">
-            <td className="px-4 py-3 text-slate-500 font-mono text-xs">#{u.userId}</td>
-            <td className="px-4 py-3 font-body font-medium text-white">{u.name}</td>
-            <td className="px-4 py-3 text-slate-400 text-xs">{u.email}</td>
-            <td className="px-4 py-3"><span className="font-mono text-xs text-brand">{u.role ? u.role.replace("ROLE_", "") : "—"}</span></td>
-            <td className="px-4 py-3 text-slate-400 text-xs">{u.department || "—"}</td>
-            <td className="px-4 py-3"><StatusBadge status={u.status} /></td>
-            <td className="px-4 py-3">
-              <div className="flex items-center gap-2">
-                <button onClick={() => setEditUser(u)} className="text-xs text-slate-400 hover:text-brand transition-colors px-2 py-1 rounded hover:bg-brand/10">Edit</button>
-                <button onClick={() => setDeleteUser(u)} className="text-xs text-slate-400 hover:text-accent-rose transition-colors px-2 py-1 rounded hover:bg-accent-rose/10">Delete</button>
-              </div>
-            </td>
-          </tr>
-        ))}
+        {users.map((u) => {
+          const canDelete = String(u.status).toUpperCase() !== "INACTIVE";
+          return (
+            <tr key={u.userId} className="border-b border-ink-700/50 last:border-0 table-row-hover">
+              <td className="px-4 py-3 text-slate-500 font-mono text-xs">#{u.userId}</td>
+              <td className="px-4 py-3 font-body font-medium text-white">{u.name}</td>
+              <td className="px-4 py-3 text-slate-400 text-xs">{u.email}</td>
+              <td className="px-4 py-3">
+                <span className="font-mono text-xs text-brand">
+                  {u.role ? u.role.replace("ROLE_", "") : "—"}
+                </span>
+              </td>
+              <td className="px-4 py-3 text-slate-400 text-xs">{u.department || "—"}</td>
+              <td className="px-4 py-3"><StatusBadge status={u.status} /></td>
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setEditUser(u)}
+                    className="text-xs text-slate-400 hover:text-brand transition-colors px-2 py-1 rounded hover:bg-brand/10"
+                  >
+                    Edit
+                  </button>
+ 
+                  {/* Hide Delete when status is INACTIVE */}
+                  {canDelete && (
+                    <button
+                      onClick={() => canDelete && setDeleteUser(u)}
+                      className="text-xs text-slate-400 hover:text-accent-rose transition-colors px-2 py-1 rounded hover:bg-accent-rose/10"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          );
+        })}
       </Table>
-
+ 
       <AddUserModal open={addOpen} onClose={() => setAddOpen(false)} onSaved={fetchUsers} />
       <EditUserModal user={editUser} open={!!editUser} onClose={() => setEditUser(null)} onSaved={fetchUsers} />
       <ConfirmDialog
