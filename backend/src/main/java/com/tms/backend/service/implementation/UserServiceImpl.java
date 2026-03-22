@@ -116,12 +116,15 @@ public class UserServiceImpl implements UserService {
 				.orElseThrow(() -> new UsernameNotFoundException(
 						"No User found with given ID: " + userId));
 
-		// Only mark deleted
+		if (user.getStatus() == UserStatus.INACTIVE) {
+			throw new IllegalStateException("User already deleted");
+		}
+
 		user.setStatus(UserStatus.INACTIVE);
-
 		userRepository.save(user);
-
-		return "User successfully deleted";
+if(user.getStatus()==UserStatus.INACTIVE){
+		return "User successfully deleted";}
+return "User not deleted";
 	}
 	// ── Helpers ─────────────────────────────────────────────────────────────────
 
