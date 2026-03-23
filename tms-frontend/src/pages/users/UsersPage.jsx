@@ -1,20 +1,26 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { userService, authService, toArray } from "../../services/api";
 import {
   PageHeader, Table, StatusBadge, Modal, ConfirmDialog,
   Alert, EmptyState, Spinner, InputField, SelectField,
 } from "../../components/common";
 import { USER_ROLES, USER_STATUSES } from "../../utils/enums";
- 
+
+
 // ─── Add User Modal ───────────────────────────────────────────────
 function AddUserModal({ open, onClose, onSaved }) {
   const [form, setForm] = useState({
     name: "", email: "", password: "", role: "ROLE_EMPLOYEE",
     status: "ACTIVE", department: "", location: "", managerId: "",
   });
+
+  const [managerPreview, setManagerPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const debounceRef = useRef(null);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
- 
+
   useEffect(() => {
     if (open) {
       setForm({
@@ -23,12 +29,47 @@ function AddUserModal({ open, onClose, onSaved }) {
         department: "", location: "", managerId: ""
       });
       setError("");
+      setManagerPreview(null);
     }
   }, [open]);
- 
-  const handleChange = (e) =>
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
- 
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+
+    if (name === "managerId") {
+      setManagerPreview(null);
+      clearTimeout(debounceRef.current);
+
+      if (value && Number(value) > 0) {
+        setPreviewLoading(true);
+
+        debounceRef.current = setTimeout(async () => {
+          try {
+            const res = await userService.getById(Number(value));
+            const u = res.data;
+
+            if (u?.name) {
+              setManagerPreview({
+                name: u.name,
+                role: u.role?.replace("ROLE_", "") || "—",
+                status: u.status,
+              });
+            } else {
+              setManagerPreview({ notFound: true });
+            }
+          } catch {
+            setManagerPreview({ notFound: true });
+          } finally {
+            setPreviewLoading(false);
+          }
+        }, 400);
+      } else {
+        setPreviewLoading(false);
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -51,49 +92,73 @@ function AddUserModal({ open, onClose, onSaved }) {
       setSaving(false);
     }
   };
- 
+
   return (
     <Modal open={open} onClose={onClose} title="Add New User" size="lg">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Alert message={error} />
- 
+
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <InputField label="Full Name" name="name" value={form.name} onChange={handleChange} required />
           </div>
- 
+
           <div className="col-span-2">
             <InputField label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
           </div>
- 
+
           <div className="col-span-2">
             <InputField label="Password" name="password" type="password" value={form.password} onChange={handleChange} required />
           </div>
- 
-          <SelectField
-            label="Role"
-            name="role"
-            value={form.role}
-            onChange={handleChange}
-            options={USER_ROLES}
-          />
- 
-          <SelectField
-            label="Status"
-            name="status"
-            value={form.status}
-            onChange={handleChange}
-            options={USER_STATUSES}
-          />
- 
-          <InputField label="Department" name="department" value={form.department} onChange={handleChange} placeholder="Department" />
-          <InputField label="Location" name="location" value={form.location} onChange={handleChange} placeholder="Location" />
- 
+
+          <SelectField label="Role" name="role" value={form.role} onChange={handleChange} options={USER_ROLES} />
+          <SelectField label="Status" name="status" value={form.status} onChange={handleChange} options={USER_STATUSES} />
+
+          <InputField label="Department" name="department" value={form.department} onChange={handleChange} />
+          <InputField label="Location" name="location" value={form.location} onChange={handleChange} />
+
           <div className="col-span-2">
-            <InputField label="Manager ID" name="managerId" type="number" value={form.managerId} onChange={handleChange} placeholder="Manager ID" />
+            <InputField label="Manager ID" name="managerId" type="number" value={form.managerId} onChange={handleChange} />
+
+            {form.managerId && (
+              <div className="mt-2 px-3 py-2.5 rounded-lg bg-ink-900 border border-ink-600 flex items-center gap-3 min-h-[42px]">
+                {previewLoading ? (
+                  <Spinner size="sm" />
+                ) : managerPreview?.notFound ? (
+                  <span className="text-accent-rose text-xs font-mono">
+                    No manager found with this ID
+                  </span>
+                ) : managerPreview ? (
+                  <>
+                    <div className="w-7 h-7 rounded-full bg-brand/20 border border-brand/30 flex items-center justify-center">
+                      <span className="text-brand text-xs font-bold">
+                        {managerPreview.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">
+                        {managerPreview.name}
+                      </p>
+                      <p className="text-slate-500 text-xs font-mono">
+                        {managerPreview.role}
+                      </p>
+                    </div>
+
+                    <span className={`text-xs font-mono px-2 py-0.5 rounded-full border ${
+                      managerPreview.status === "ACTIVE"
+                        ? "text-accent-teal bg-accent-teal/10 border-accent-teal/30"
+                        : "text-slate-400 bg-slate-400/10 border-slate-400/30"
+                    }`}>
+                      {managerPreview.status}
+                    </span>
+                  </>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
- 
+
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose}>Cancel</button>
           <button type="submit" disabled={saving}>
@@ -104,137 +169,91 @@ function AddUserModal({ open, onClose, onSaved }) {
     </Modal>
   );
 }
- 
-// ─── Edit User Modal ─────────────────────────────────────────────
+
+
+// ─── Edit User Modal (same logic) ─────────────────────────────────
 function EditUserModal({ user, open, onClose, onSaved }) {
   const [form, setForm] = useState({});
+  const [managerPreview, setManagerPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const debounceRef = useRef(null);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
- 
+
   useEffect(() => {
     if (user) {
       setForm({
         userId: user.userId,
         name: user.name || "",
         email: user.email || "",
-        role: user.role || "ROLE_EMPLOYEE",
-        status: user.status || "ACTIVE",
-        department: user.department || "",
-        location: user.location || "",
+        role: user.role,
+        status: user.status,
+        department: user.department,
+        location: user.location,
         managerId: user.managerId || "",
       });
     }
   }, [user]);
- 
-  const handleChange = (e) =>
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
- 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
-    try {
-      await userService.update({
-        ...form,
-        managerId: form.managerId ? Number(form.managerId) : undefined,
-      });
-      onSaved();
-      onClose();
-    } catch (err) {
-      setError(err.response?.data?.message || "Update failed.");
-    } finally {
-      setSaving(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm(f => ({ ...f, [name]: value }));
+
+    if (name === "managerId") {
+      setManagerPreview(null);
+      clearTimeout(debounceRef.current);
+
+      if (value && Number(value) > 0) {
+        setPreviewLoading(true);
+
+        debounceRef.current = setTimeout(async () => {
+          try {
+            const res = await userService.getById(Number(value));
+            const u = res.data;
+
+            if (u?.name) {
+              setManagerPreview({
+                name: u.name,
+                role: u.role?.replace("ROLE_", ""),
+                status: u.status,
+              });
+            } else {
+              setManagerPreview({ notFound: true });
+            }
+          } catch {
+            setManagerPreview({ notFound: true });
+          } finally {
+            setPreviewLoading(false);
+          }
+        }, 400);
+      } else {
+        setPreviewLoading(false);
+      }
     }
   };
- 
+
   return (
-    <Modal open={open} onClose={onClose} title={`Edit User — ${user?.name ?? ""}`}>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <Modal open={open} onClose={onClose} title={`Edit User — ${user?.name}`}>
+      <form className="flex flex-col gap-4">
         <Alert message={error} />
- 
+
         <div className="grid grid-cols-2 gap-4">
-          {/* Optional: Show the User ID read-only */}
-          <div className="col-span-2">
-            <InputField
-              label="User ID"
-              name="userId"
-              value={form.userId ?? ""}
-              readOnly
-            />
-          </div>
- 
-          <div className="col-span-2">
-            <InputField
-              label="Full Name"
-              name="name"
-              value={form.name || ""}
-              onChange={handleChange}
-            />
-          </div>
- 
-          <div className="col-span-2">
-            <InputField
-              label="Email"
-              name="email"
-              type="email"
-              value={form.email || ""}
-              onChange={handleChange}
-            />
-          </div>
- 
-          <SelectField
-            label="Role"
-            name="role"
-            value={form.role || ""}
-            onChange={handleChange}
-            options={USER_ROLES}
-          />
- 
-          <SelectField
-            label="Status"
-            name="status"
-            value={form.status || ""}
-            onChange={handleChange}
-            options={USER_STATUSES}
-          />
- 
-          <InputField
-            label="Department"
-            name="department"
-            value={form.department || ""}
-            onChange={handleChange}
-          />
- 
-          <InputField
-            label="Location"
-            name="location"
-            value={form.location || ""}
-            onChange={handleChange}
-          />
- 
-          <div className="col-span-2">
-            <InputField
-              label="Manager ID"
-              name="managerId"
-              type="number"
-              value={form.managerId || ""}
-              onChange={handleChange}
-            />
-          </div>
-        </div>
- 
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose}>Cancel</button>
-          <button type="submit" disabled={saving}>
-            {saving ? <Spinner size="sm" /> : "Save Changes"}
-          </button>
+          <InputField label="Manager ID" name="managerId" value={form.managerId || ""} onChange={handleChange} />
+
+          {form.managerId && (
+            <div className="mt-2 px-3 py-2.5 rounded-lg bg-ink-900 border border-ink-600 flex items-center gap-3 min-h-[42px]">
+              {previewLoading ? <Spinner size="sm" /> : managerPreview?.name}
+            </div>
+          )}
         </div>
       </form>
     </Modal>
   );
 }
- 
-// ─── Main Page ────────────────────────────────────────────────────
+
+
+
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
