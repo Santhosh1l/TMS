@@ -1,22 +1,130 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
-import { userService, authService, toArray } from "../../services/api";
+import React, { useEffect, useState, useRef } from "react";
+import { userService, authService } from "../../services/api";
 import {
-  PageHeader, Table, StatusBadge, Modal, ConfirmDialog,
-  Alert, EmptyState, Spinner, InputField, SelectField,
+  Modal, Spinner, Alert, InputField, SelectField
 } from "../../components/common";
 import { USER_ROLES, USER_STATUSES } from "../../utils/enums";
+import { useCallback } from "react";
 
+import {
+  PageHeader,
+  Table,
+  StatusBadge,
+  ConfirmDialog,
+  EmptyState
+} from "../../components/common";
 
-// ─── Add User Modal ───────────────────────────────────────────────
-function AddUserModal({ open, onClose, onSaved }) {
-  const [form, setForm] = useState({
-    name: "", email: "", password: "", role: "ROLE_EMPLOYEE",
-    status: "ACTIVE", department: "", location: "", managerId: "",
-  });
+import { toArray } from "../../services/api";
 
+// ─────────────────────────────────────────────
+// ✅ Reusable Manager Preview Hook
+// ─────────────────────────────────────────────
+function useManagerPreview(managerId) {
   const [managerPreview, setManagerPreview] = useState(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const debounceRef = useRef(null);
+
+  useEffect(() => {
+    setManagerPreview(null);
+    clearTimeout(debounceRef.current);
+
+    if (managerId && Number(managerId) > 0) {
+      setLoading(true);
+
+      debounceRef.current = setTimeout(async () => {
+        try {
+          const res = await userService.getById(Number(managerId));
+          const u = res.data;
+
+          if (u?.name) {
+            setManagerPreview({
+              name: u.name,
+              role: u.role?.replace("ROLE_", "") || "—",
+              status: u.status,
+            });
+          } else {
+            setManagerPreview({ notFound: true });
+          }
+        } catch {
+          setManagerPreview({ notFound: true });
+        } finally {
+          setLoading(false);
+        }
+      }, 400);
+    } else {
+      setLoading(false);
+    }
+
+    return () => clearTimeout(debounceRef.current);
+  }, [managerId]);
+
+  return { managerPreview, loading };
+}
+
+
+// ─────────────────────────────────────────────
+// ✅ Manager Preview UI (Reusable)
+// ─────────────────────────────────────────────
+function ManagerPreview({ managerId }) {
+  const { managerPreview, loading } = useManagerPreview(managerId);
+
+  if (!managerId) return null;
+
+  return (
+    <div className="mt-2 px-3 py-2.5 rounded-lg bg-ink-900 border border-ink-600 flex items-center gap-3 min-h-[42px]">
+      {loading ? (
+        <Spinner size="sm" />
+      ) : managerPreview?.notFound ? (
+        <span className="text-accent-rose text-xs font-mono">
+          No manager found with this ID
+        </span>
+      ) : managerPreview ? (
+        <>
+          <div className="w-7 h-7 rounded-full bg-brand/20 border border-brand/30 flex items-center justify-center">
+            <span className="text-brand text-xs font-bold">
+              {managerPreview.name.charAt(0).toUpperCase()}
+            </span>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-medium truncate">
+              {managerPreview.name}
+            </p>
+            <p className="text-slate-500 text-xs font-mono">
+              {managerPreview.role}
+            </p>
+          </div>
+
+          <span
+            className={`text-xs font-mono px-2 py-0.5 rounded-full border ${
+              managerPreview.status === "ACTIVE"
+                ? "text-accent-teal bg-accent-teal/10 border-accent-teal/30"
+                : "text-slate-400 bg-slate-400/10 border-slate-400/30"
+            }`}
+          >
+            {managerPreview.status}
+          </span>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────
+// ✅ Add User Modal
+// ─────────────────────────────────────────────
+export function AddUserModal({ open, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "ROLE_EMPLOYEE",
+    status: "ACTIVE",
+    department: "",
+    location: "",
+    managerId: "",
+  });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -24,66 +132,35 @@ function AddUserModal({ open, onClose, onSaved }) {
   useEffect(() => {
     if (open) {
       setForm({
-        name: "", email: "", password: "",
-        role: "ROLE_EMPLOYEE", status: "ACTIVE",
-        department: "", location: "", managerId: ""
+        name: "",
+        email: "",
+        password: "",
+        role: "ROLE_EMPLOYEE",
+        status: "ACTIVE",
+        department: "",
+        location: "",
+        managerId: "",
       });
       setError("");
-      setManagerPreview(null);
     }
   }, [open]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
-
-    if (name === "managerId") {
-      setManagerPreview(null);
-      clearTimeout(debounceRef.current);
-
-      if (value && Number(value) > 0) {
-        setPreviewLoading(true);
-
-        debounceRef.current = setTimeout(async () => {
-          try {
-            const res = await userService.getById(Number(value));
-            const u = res.data;
-
-            if (u?.name) {
-              setManagerPreview({
-                name: u.name,
-                role: u.role?.replace("ROLE_", "") || "—",
-                status: u.status,
-              });
-            } else {
-              setManagerPreview({ notFound: true });
-            }
-          } catch {
-            setManagerPreview({ notFound: true });
-          } finally {
-            setPreviewLoading(false);
-          }
-        }, 400);
-      } else {
-        setPreviewLoading(false);
-      }
-    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     setError("");
+
     try {
       await authService.register({
-        name: form.name,
-        email: form.email,
-        password: form.password,
-        role: form.role,
-        status: form.status,
-        department: form.department || undefined,
+        ...form,
         managerId: form.managerId ? Number(form.managerId) : undefined,
       });
+
       onSaved();
       onClose();
     } catch (err) {
@@ -99,17 +176,9 @@ function AddUserModal({ open, onClose, onSaved }) {
         <Alert message={error} />
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <InputField label="Full Name" name="name" value={form.name} onChange={handleChange} required />
-          </div>
-
-          <div className="col-span-2">
-            <InputField label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
-          </div>
-
-          <div className="col-span-2">
-            <InputField label="Password" name="password" type="password" value={form.password} onChange={handleChange} required />
-          </div>
+          <InputField label="Full Name" name="name" value={form.name} onChange={handleChange} required />
+          <InputField label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
+          <InputField label="Password" name="password" type="password" value={form.password} onChange={handleChange} required />
 
           <SelectField label="Role" name="role" value={form.role} onChange={handleChange} options={USER_ROLES} />
           <SelectField label="Status" name="status" value={form.status} onChange={handleChange} options={USER_STATUSES} />
@@ -118,44 +187,15 @@ function AddUserModal({ open, onClose, onSaved }) {
           <InputField label="Location" name="location" value={form.location} onChange={handleChange} />
 
           <div className="col-span-2">
-            <InputField label="Manager ID" name="managerId" type="number" value={form.managerId} onChange={handleChange} />
+            <InputField
+              label="Manager ID"
+              name="managerId"
+              type="number"
+              value={form.managerId}
+              onChange={handleChange}
+            />
 
-            {form.managerId && (
-              <div className="mt-2 px-3 py-2.5 rounded-lg bg-ink-900 border border-ink-600 flex items-center gap-3 min-h-[42px]">
-                {previewLoading ? (
-                  <Spinner size="sm" />
-                ) : managerPreview?.notFound ? (
-                  <span className="text-accent-rose text-xs font-mono">
-                    No manager found with this ID
-                  </span>
-                ) : managerPreview ? (
-                  <>
-                    <div className="w-7 h-7 rounded-full bg-brand/20 border border-brand/30 flex items-center justify-center">
-                      <span className="text-brand text-xs font-bold">
-                        {managerPreview.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">
-                        {managerPreview.name}
-                      </p>
-                      <p className="text-slate-500 text-xs font-mono">
-                        {managerPreview.role}
-                      </p>
-                    </div>
-
-                    <span className={`text-xs font-mono px-2 py-0.5 rounded-full border ${
-                      managerPreview.status === "ACTIVE"
-                        ? "text-accent-teal bg-accent-teal/10 border-accent-teal/30"
-                        : "text-slate-400 bg-slate-400/10 border-slate-400/30"
-                    }`}>
-                      {managerPreview.status}
-                    </span>
-                  </>
-                ) : null}
-              </div>
-            )}
+            <ManagerPreview managerId={form.managerId} />
           </div>
         </div>
 
@@ -171,26 +211,18 @@ function AddUserModal({ open, onClose, onSaved }) {
 }
 
 
-// ─── Edit User Modal (same logic) ─────────────────────────────────
-function EditUserModal({ user, open, onClose, onSaved }) {
+// ─────────────────────────────────────────────
+// ✅ Edit User Modal
+// ─────────────────────────────────────────────
+export function EditUserModal({ user, open, onClose, onSaved }) {
   const [form, setForm] = useState({});
-  const [managerPreview, setManagerPreview] = useState(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const debounceRef = useRef(null);
-
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (user) {
       setForm({
-        userId: user.userId,
-        name: user.name || "",
-        email: user.email || "",
-        role: user.role,
-        status: user.status,
-        department: user.department,
-        location: user.location,
+        ...user,
         managerId: user.managerId || "",
       });
     }
@@ -198,62 +230,66 @@ function EditUserModal({ user, open, onClose, onSaved }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm(f => ({ ...f, [name]: value }));
+    setForm((f) => ({ ...f, [name]: value }));
+  };
 
-    if (name === "managerId") {
-      setManagerPreview(null);
-      clearTimeout(debounceRef.current);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
 
-      if (value && Number(value) > 0) {
-        setPreviewLoading(true);
+    try {
+      await userService.update(user.id, {
+        ...form,
+        managerId: form.managerId ? Number(form.managerId) : null,
+      });
 
-        debounceRef.current = setTimeout(async () => {
-          try {
-            const res = await userService.getById(Number(value));
-            const u = res.data;
-
-            if (u?.name) {
-              setManagerPreview({
-                name: u.name,
-                role: u.role?.replace("ROLE_", ""),
-                status: u.status,
-              });
-            } else {
-              setManagerPreview({ notFound: true });
-            }
-          } catch {
-            setManagerPreview({ notFound: true });
-          } finally {
-            setPreviewLoading(false);
-          }
-        }, 400);
-      } else {
-        setPreviewLoading(false);
-      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update user.");
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={`Edit User — ${user?.name}`}>
-      <form className="flex flex-col gap-4">
+    <Modal open={open} onClose={onClose} title={`Edit User — ${user?.name || ""}`}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Alert message={error} />
 
         <div className="grid grid-cols-2 gap-4">
-          <InputField label="Manager ID" name="managerId" value={form.managerId || ""} onChange={handleChange} />
+          <InputField label="Full Name" name="name" value={form.name || ""} onChange={handleChange} />
+          <InputField label="Email" name="email" value={form.email || ""} onChange={handleChange} />
 
-          {form.managerId && (
-            <div className="mt-2 px-3 py-2.5 rounded-lg bg-ink-900 border border-ink-600 flex items-center gap-3 min-h-[42px]">
-              {previewLoading ? <Spinner size="sm" /> : managerPreview?.name}
-            </div>
-          )}
+          <SelectField label="Role" name="role" value={form.role || ""} onChange={handleChange} options={USER_ROLES} />
+          <SelectField label="Status" name="status" value={form.status || ""} onChange={handleChange} options={USER_STATUSES} />
+
+          <div className="col-span-2">
+            <InputField
+              label="Manager ID"
+              name="managerId"
+              type="number"
+              value={form.managerId || ""}
+              onChange={handleChange}
+            />
+
+            <ManagerPreview managerId={form.managerId} />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose}>Cancel</button>
+          <button type="submit" disabled={saving}>
+            {saving ? <Spinner size="sm" /> : "Update User"}
+          </button>
         </div>
       </form>
     </Modal>
   );
 }
-
-
-
+ 
+// ─── Main Page ────────────────────────────────────────────────────
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
