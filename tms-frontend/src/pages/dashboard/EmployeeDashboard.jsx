@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { sessionService, taskAttemptService, courseService, enrollService, userService, toArray } from "../../services/api";
+import { sessionService, taskAttemptService, courseService, enrollService, userService, taskService, toArray } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { Spinner, StatusBadge } from "../../components/common";
 
@@ -8,10 +8,11 @@ export default function EmployeeDashboard() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
   const [enrollments, setEnrollments] = useState([]);
-  const [sessions, setSessions]       = useState([]);
-  const [attempts, setAttempts]       = useState([]);
-  const [courses, setCourses]         = useState([]);
-  const [loading, setLoading]         = useState(true);
+  const [sessions, setSessions] = useState([]);
+  const [attempts, setAttempts] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [courseTasks, setCourseTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -19,7 +20,7 @@ export default function EmployeeDashboard() {
         if (user?.userId && !user?.name) {
           userService.getById(user.userId)
             .then(res => { if (res.data?.name) updateUser({ name: res.data.name }); })
-            .catch(() => {});
+            .catch(() => { });
         }
 
         const [sRes, cRes, aRes] = await Promise.allSettled([
@@ -28,22 +29,33 @@ export default function EmployeeDashboard() {
           user?.userId ? taskAttemptService.getAll({ userId: user.userId }) : Promise.resolve({ data: [] }),
         ]);
 
-        const courseList = cRes.status==="fulfilled" ? toArray(cRes.value.data) : [];
+        const courseList = cRes.status === "fulfilled" ? toArray(cRes.value.data) : [];
         setCourses(courseList);
 
-        if (sRes.status==="fulfilled") setSessions(toArray(sRes.value.data));
-        if (aRes.status==="fulfilled") setAttempts(toArray(aRes.value.data));
+        if (sRes.status === "fulfilled") setSessions(toArray(sRes.value.data));
+        if (aRes.status === "fulfilled") setAttempts(toArray(aRes.value.data));
 
         if (user?.userId && courseList.length > 0) {
           const eRes = await Promise.allSettled(
-            courseList.slice(0,6).map(c => enrollService.getAll(c.courseId, { userId: user.userId }))
+            courseList.slice(0, 6).map(c => enrollService.getAll(c.courseId, { userId: user.userId }))
           );
 
-          setEnrollments(
-            eRes.filter(r=>r.status==="fulfilled")
-              .flatMap(r=>toArray(r.value.data))
-              .filter(e=>e.userId===user.userId)
-          );
+          const userEnrollments = eRes.filter(r => r.status === "fulfilled")
+            .flatMap(r => toArray(r.value.data))
+            .filter(e => e.userId === user.userId);
+
+          setEnrollments(userEnrollments);
+
+          const eCourseIds = userEnrollments.map(e => e.courseId);
+          if (eCourseIds.length > 0) {
+            const taskRes = await Promise.allSettled(
+              eCourseIds.map(cId => taskService.getAll({ courseId: cId }))
+            );
+            setCourseTasks(
+              taskRes.filter(r => r.status === "fulfilled")
+                .flatMap(r => toArray(r.value.data))
+            );
+          }
         }
 
       } finally { setLoading(false); }
@@ -59,10 +71,10 @@ export default function EmployeeDashboard() {
     enrolledCourseIds.includes(s.courseId)
   );
 
-  const pending   = attempts.filter(a => a.status==="IN_PROGRESS"||a.status==="NOT_STARTED").length;
-  const submitted = attempts.filter(a => a.status==="SUBMITTED").length;
-  const completed = enrollments.filter(e => e.status==="COMPLETED").length;
-  const today     = new Date().toLocaleDateString("en-US",{weekday:"long"}).toUpperCase();
+  const pending = attempts.filter(a => a.status === "IN_PROGRESS" || a.status === "NOT_STARTED").length;
+  const submitted = attempts.filter(a => a.status === "SUBMITTED").length;
+  const completed = enrollments.filter(e => e.status === "COMPLETED").length;
+  const today = new Date().toLocaleDateString("en-US", { weekday: "long" }).toUpperCase();
 
   return (
     <div className="animate-fade-in">
@@ -71,10 +83,10 @@ export default function EmployeeDashboard() {
         <div>
           <p className="text-slate-500 text-xs font-mono uppercase tracking-widest mb-1">Employee Dashboard</p>
           <h1 className="font-display font-bold text-3xl text-white">
-  {user?.name 
-    ? `Hello ${user.name.split(" ")[0]} ` 
-    : "Hello User"}
-</h1>
+            {user?.name
+              ? `Hello ${user.name.split(" ")[0]} `
+              : "Hello User"}
+          </h1>
           <p className="text-slate-400 text-sm mt-1">Track your courses, sessions and tasks</p>
         </div>
         <div className="glass-card px-4 py-2 flex items-center gap-2">
@@ -94,7 +106,7 @@ export default function EmployeeDashboard() {
             <button onClick={() => navigate("/employee/tasks")} className="text-accent-amber text-xs hover:underline">View all →</button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {attempts.filter(a=>a.status==="NOT_STARTED"||a.status==="IN_PROGRESS").slice(0,2).map(a => (
+            {attempts.filter(a => a.status === "NOT_STARTED" || a.status === "IN_PROGRESS").slice(0, 2).map(a => (
               <div key={a.taskAttemptId} className="bg-ink-800 rounded-lg p-3 flex items-center justify-between border border-ink-600">
                 <div>
                   <p className="text-white text-sm font-medium">Task #{a.taskId}</p>
@@ -110,10 +122,10 @@ export default function EmployeeDashboard() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label:"My Courses",  value:enrollments.length, sub:`${completed} completed`, color:"text-accent-teal",  icon:"◎" },
-          { label:"Sessions",    value:filteredSessions.length, sub:"upcoming", color:"text-accent-amber", icon:"◷" },
-          { label:"Pending",     value:pending, sub:"tasks to do", color:"text-accent-rose",  icon:"◫" },
-          { label:"Submitted",   value:submitted, sub:"awaiting review", color:"text-brand", icon:"✓" },
+          { label: "My Courses", value: enrollments.length, sub: `${completed} completed`, color: "text-accent-teal", icon: "◎" },
+          { label: "Sessions", value: filteredSessions.length, sub: "upcoming", color: "text-accent-amber", icon: "◷" },
+          { label: "Pending", value: pending, sub: "tasks to do", color: "text-accent-rose", icon: "◫" },
+          { label: "Submitted", value: submitted, sub: "awaiting review", color: "text-brand", icon: "✓" },
         ].map(({ label, value, sub, color, icon }) => (
           <div key={label} className="glass-card p-5 border border-brand/10 hover:border-brand/25 transition-all">
             <div className="flex items-center justify-between mb-2">
@@ -127,70 +139,111 @@ export default function EmployeeDashboard() {
           </div>
         ))}
       </div>
- 
-        {/* My Courses */}
-        <div>
-          <h2 className="font-display font-semibold text-lg text-white mb-3">MY COURSES</h2>
-          <div className="glass-card divide-y divide-ink-700/50 border border-brand/10">
-            {loading ? <div className="flex justify-center py-8"><Spinner /></div>
-            : enrollments.length === 0 ? (
-              <div className="text-center py-10">
-                <p className="text-3xl mb-2 opacity-30">◎</p>
-                <p className="text-slate-500 text-sm">Not enrolled in any courses yet</p>
-              </div>
-            ) : enrollments.map(e => {
-              const course = courses.find(c => c.courseId === e.courseId);
-              return (
-                <div key={e.enrollmentId} className="p-4 hover:bg-ink-700/50 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/employee/courses/${e.courseId}`)}>
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <p className="font-medium text-white text-sm">{course?.title || `Course #${e.courseId}`}</p>
-                      <p className="text-slate-500 text-xs font-mono mt-0.5">{e.memberRole?.replace("ROLE_","")}</p>
-                    </div>
-                    <StatusBadge status={e.status} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="space-y-8">
+          {/* Upcoming Sessions */}
+          <div>
+            <h2 className="font-display font-semibold text-lg text-white mb-3">UPCOMING SESSIONS</h2>
+            <div className="glass-card divide-y divide-ink-700/50 border border-brand/10">
+              {loading ? <div className="flex justify-center py-8"><Spinner /></div>
+                : filteredSessions.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-3xl mb-2 opacity-30">◷</p>
+                    <p className="text-slate-500 text-sm">No upcoming sessions</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 h-2 bg-ink-600 rounded-full overflow-hidden">
-                      <div className="h-full bg-brand rounded-full" style={{width:`${e.progressPercent||0}%`}} />
+                ) : filteredSessions.slice(0, 5).map(s => (
+                  <div key={s.sessionId} className="p-4 hover:bg-ink-700/50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-medium text-white text-sm">{s.title}</p>
+                        <p className="text-slate-500 text-xs font-mono mt-0.5">
+                          {s.sessionDate || "TBD"}{s.startTime ? ` · ${s.startTime}` : ""}{s.room ? ` · ${s.room}` : ""}
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono text-accent-amber bg-accent-amber/10 px-2 py-0.5 rounded-full border border-accent-amber/20 ml-2 whitespace-nowrap">{s.sessionType}</span>
                     </div>
-                    <span className="text-xs font-mono text-slate-300 w-10 text-right">{e.progressPercent||0}%</span>
+                    {s.deliveryLink && (
+                      <a href={s.deliveryLink} target="_blank" rel="noreferrer"
+                        className="text-brand text-xs hover:underline mt-1.5 block">Join session →</a>
+                    )}
                   </div>
-                </div>
-              );
-            })}
+                ))}
+            </div>
+          </div>
+
+          {/* Course Tasks */}
+          <div>
+            <h2 className="font-display font-semibold text-lg text-white mb-3">COURSE TASKS</h2>
+            <div className="glass-card divide-y divide-ink-700/50 border border-brand/10">
+              {loading ? <div className="flex justify-center py-8"><Spinner /></div>
+                : courseTasks.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-3xl mb-2 opacity-30">◫</p>
+                    <p className="text-slate-500 text-sm">No tasks assigned for your courses</p>
+                  </div>
+                ) : courseTasks.slice(0, 5).map(t => {
+                  const attempt = attempts.find(a => a.taskId === t.taskId);
+                  const status = attempt ? attempt.status : "NOT_STARTED";
+                  const course = courses.find(c => c.courseId === t.courseId);
+                  return (
+                    <div key={t.taskId} className="p-4 hover:bg-ink-700/50 transition-colors cursor-pointer" onClick={() => navigate(`/employee/tasks/${t.taskId}/submit`)}>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-medium text-white text-sm">{t.title}</h3>
+                          <p className="text-slate-500 text-xs font-mono mt-0.5">
+                            {course?.title || `Course #${t.courseId}`} · Due: {t.submissionDeadline || "No Deadline"} · {t.totalMarks} Marks
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono text-brand bg-brand/10 px-2 py-0.5 rounded-full border border-brand/20 ml-2 whitespace-nowrap">{t.type}</span>
+                          <StatusBadge status={status} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
           </div>
         </div>
-      {/* Upcoming Sessions */}
-      <div>
-        <h2 className="font-display font-semibold text-lg text-white mb-3">UPCOMING SESSIONS</h2>
-        <div className="glass-card divide-y divide-ink-700/50 border border-brand/10">
-          {loading ? <div className="flex justify-center py-8"><Spinner /></div>
-          : filteredSessions.length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-3xl mb-2 opacity-30">◷</p>
-              <p className="text-slate-500 text-sm">No upcoming sessions</p>
-            </div>
-          ) : filteredSessions.slice(0,5).map(s => (
-              <div key={s.sessionId} className="p-4 hover:bg-ink-700/50 transition-colors">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium text-white text-sm">{s.title}</p>
-                    <p className="text-slate-500 text-xs font-mono mt-0.5">
-                      {s.sessionDate||"TBD"}{s.startTime?` · ${s.startTime}`:""}{s.room?` · ${s.room}`:""}
-                    </p>
+
+        <div>
+          {/* My Courses */}
+          <div>
+            <h2 className="font-display font-semibold text-lg text-white mb-3">MY COURSES</h2>
+            <div className="glass-card divide-y divide-ink-700/50 border border-brand/10">
+              {loading ? <div className="flex justify-center py-8"><Spinner /></div>
+                : enrollments.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-3xl mb-2 opacity-30">◎</p>
+                    <p className="text-slate-500 text-sm">Not enrolled in any courses yet</p>
                   </div>
-                  <span className="text-xs font-mono text-accent-amber bg-accent-amber/10 px-2 py-0.5 rounded-full border border-accent-amber/20 ml-2 whitespace-nowrap">{s.sessionType}</span>
-                </div>
-                {s.deliveryLink && (
-                  <a href={s.deliveryLink} target="_blank" rel="noreferrer"
-                    className="text-brand text-xs hover:underline mt-1.5 block">Join session →</a>
-                )}
-              </div>
-            ))}
+                ) : enrollments.map(e => {
+                  const course = courses.find(c => c.courseId === e.courseId);
+                  return (
+                    <div key={e.enrollmentId} className="p-4 hover:bg-ink-700/50 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/employee/courses/${e.courseId}`)}>
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-white text-sm">{course?.title || `Course #${e.courseId}`}</p>
+                          <p className="text-slate-500 text-xs font-mono mt-0.5">{e.memberRole?.replace("ROLE_", "")}</p>
+                        </div>
+                        <StatusBadge status={e.status} />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-2 bg-ink-600 rounded-full overflow-hidden">
+                          <div className="h-full bg-brand rounded-full" style={{ width: `${e.progressPercent || 0}%` }} />
+                        </div>
+                        <span className="text-xs font-mono text-slate-300 w-10 text-right">{e.progressPercent || 0}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    
+
   );
 }
