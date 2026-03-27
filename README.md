@@ -1,4 +1,4 @@
-# Task Management System (TMS)
+# Training Management System (TMS)
 
 A full-stack Task Management System built with a Java Spring Boot backend and a React frontend.
 
