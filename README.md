@@ -44,7 +44,7 @@ By default, the backend server will start on port `8080`.
 
 ## Frontend Setup (React)
 
-The frontend is located in the `tms-frontend/` directory and is built using React and Tailwind CSS.
+The frontend is located in the `frontend/` directory and is built using React and Tailwind CSS.
 
 ### Running the Frontend Locally
 
