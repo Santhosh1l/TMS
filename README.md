@@ -50,7 +50,7 @@ The frontend is located in the `frontend/` directory and is built using React an
 
 1. Navigate to the frontend directory:
    ```bash
-   cd tms-frontend
+   cd frontend
    ```
 2. Install the required dependencies:
    ```bash
