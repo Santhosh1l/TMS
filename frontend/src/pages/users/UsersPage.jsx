@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
-import { userService, authService } from "../../services/api";
+import { userService, authService, enrollService } from "../../services/api";
 import {
   Modal, Spinner, Alert, InputField, SelectField
 } from "../../components/common";
-import { USER_ROLES, USER_STATUSES } from "../../utils/enums";
+import { USER_ROLES, USER_STATUSES, COURSE_MEMBER_ROLES } from "../../utils/enums";
 import { useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -293,6 +293,118 @@ export function EditUserModal({ user, open, onClose, onSaved }) {
     </Modal>
   );
 }
+
+// ─────────────────────────────────────────────
+// ✅ Multi Enroll Modal
+// ─────────────────────────────────────────────
+export function MultiEnrollModal({ user, open, onClose }) {
+  const { user: currentUser } = useAuth();
+  const [form, setForm] = useState({ courseIds: "", memberRole: "ROLE_EMPLOYEE" });
+  const [saving, setSaving] = useState(false);
+  const [results, setResults] = useState(null);
+
+  useEffect(() => {
+    if (open) {
+      setForm({ courseIds: "", memberRole: "ROLE_EMPLOYEE" });
+      setResults(null);
+    }
+  }, [open]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setResults(null);
+
+    const ids = form.courseIds.split(/[\s,]+/).map(id => Number(id)).filter(id => !isNaN(id) && id > 0);
+    if (ids.length === 0) {
+      setResults([{ courseId: "N/A", success: false, message: "No valid Course IDs provided." }]);
+      setSaving(false);
+      return;
+    }
+
+    const uniqueIds = [...new Set(ids)];
+    const out = [];
+
+    for (const courseId of uniqueIds) {
+      try {
+        await enrollService.enroll(courseId, {
+          userId: user.userId,
+          courseId,
+          memberRole: form.memberRole,
+          status: "ASSIGNED",
+          assignedByUserId: currentUser?.userId
+        });
+        out.push({ courseId, success: true, message: "Enrolled" });
+      } catch (err) {
+        out.push({ courseId, success: false, message: err.response?.data?.message || "Failed" });
+      }
+    }
+
+    setResults(out);
+    setSaving(false);
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Enroll ${user?.name || ""} in Courses`}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {user && (
+          <div className="bg-ink-900 border border-ink-600 rounded-lg p-3">
+             <p className="text-sm font-medium text-white">{user.name}</p>
+             <p className="text-xs text-slate-400 font-mono">ID: #{user.userId} | Role: {user.role?.replace("ROLE_", "")}</p>
+          </div>
+        )}
+
+        <SelectField 
+          label="Role in Course" 
+          name="memberRole" 
+          value={form.memberRole} 
+          onChange={handleChange} 
+          options={COURSE_MEMBER_ROLES} 
+        />
+
+        <div>
+           <label className="label">Course IDs (comma separated)</label>
+           <textarea
+             name="courseIds"
+             value={form.courseIds}
+             onChange={handleChange}
+             className="input-field min-h-[80px]"
+             placeholder="e.g. 1, 4, 7"
+             required
+           />
+        </div>
+
+        {results && (
+          <div className="bg-ink-900/50 rounded-lg p-3 max-h-[150px] overflow-y-auto">
+            <h4 className="text-xs font-semibold text-slate-300 mb-2 font-display uppercase tracking-wider">Results</h4>
+            <div className="flex flex-col gap-1">
+              {results.map((r, i) => (
+                <div key={i} className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-slate-400">Course #{r.courseId}</span>
+                  <span className={r.success ? "text-accent-teal" : "text-accent-rose truncate max-w-[200px]"}>{r.success ? "Success" : r.message}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 mt-2">
+          <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
+          {!results && (
+            <button type="submit" className="btn-primary flex items-center gap-2" disabled={saving}>
+              {saving ? <Spinner size="sm" /> : "Enroll in Courses"}
+            </button>
+          )}
+        </div>
+      </form>
+    </Modal>
+  );
+}
  
 // ─── Main Page ────────────────────────────────────────────────────
 export default function UsersPage() {
@@ -302,6 +414,7 @@ export default function UsersPage() {
   const [filters, setFilters] = useState({ role: "", status: "" });
   const [addOpen, setAddOpen] = useState(false);
   const [editUser, setEditUser] = useState(null);
+  const [enrollUser, setEnrollUser] = useState(null);
   const [deleteUser, setDeleteUser] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [alert, setAlert] = useState({ type: "", message: "" });
@@ -427,6 +540,13 @@ export default function UsersPage() {
                   >
                     Edit
                   </button>
+
+                  <button
+                    onClick={() => setEnrollUser(u)}
+                    className="text-xs text-slate-400 hover:text-accent-teal transition-colors px-2 py-1 rounded hover:bg-accent-teal/10"
+                  >
+                    Enroll
+                  </button>
  
                   {/* Hide Delete when status is INACTIVE */}
                   {canDelete && (
@@ -446,6 +566,7 @@ export default function UsersPage() {
  
       <AddUserModal open={addOpen} onClose={() => setAddOpen(false)} onSaved={fetchUsers} />
       <EditUserModal user={editUser} open={!!editUser} onClose={() => setEditUser(null)} onSaved={fetchUsers} />
+      <MultiEnrollModal user={enrollUser} open={!!enrollUser} onClose={() => setEnrollUser(null)} />
       <ConfirmDialog
         open={!!deleteUser}
         onClose={() => setDeleteUser(null)}
