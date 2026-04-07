@@ -49,13 +49,13 @@ public class UserController {
 
 
 
-	@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+	//@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
 	@PutMapping
 	public ResponseEntity<UserDTO> updateUserById(@Valid @RequestBody UserUpdateDTO data) {
 		return ResponseEntity.ok(userService.updateUserById(data)); 
 	}
 
-	// DELETE MAPPINGS
+
 
 	@PreAuthorize("hasRole('ADMIN')")
 	@DeleteMapping("/{userId}")

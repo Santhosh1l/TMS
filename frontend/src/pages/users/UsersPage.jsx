@@ -239,8 +239,9 @@ export function EditUserModal({ user, open, onClose, onSaved }) {
     setError("");
 
     try {
-      await userService.update(user.id, {
+      await userService.update({
         ...form,
+        userId: user.userId,
         managerId: form.managerId ? Number(form.managerId) : null,
       });
 
