@@ -37,7 +37,7 @@ export default function EmployeeDashboard() {
 
         if (user?.userId && courseList.length > 0) {
           const eRes = await Promise.allSettled(
-            courseList.slice(0, 6).map(c => enrollService.getAll(c.courseId, { userId: user.userId }))
+            courseList.map(c => enrollService.getAll(c.courseId, { userId: user.userId }))
           );
 
           const userEnrollments = eRes.filter(r => r.status === "fulfilled")
