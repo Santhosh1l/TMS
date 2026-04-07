@@ -266,6 +266,9 @@ export function EditUserModal({ user, open, onClose, onSaved }) {
           <SelectField label="Role" name="role" value={form.role || ""} onChange={handleChange} options={USER_ROLES} />
           <SelectField label="Status" name="status" value={form.status || ""} onChange={handleChange} options={USER_STATUSES} />
 
+          <InputField label="Department" name="department" value={form.department || ""} onChange={handleChange} />
+          <InputField label="Location" name="location" value={form.location || ""} onChange={handleChange} />
+
           <div className="col-span-2">
             <InputField
               label="Manager ID"
