@@ -5,6 +5,7 @@ import {
 } from "../../components/common";
 import { USER_ROLES, USER_STATUSES } from "../../utils/enums";
 import { useCallback } from "react";
+import { useAuth } from "../../context/AuthContext";
 
 import {
   PageHeader,
@@ -295,6 +296,7 @@ export function EditUserModal({ user, open, onClose, onSaved }) {
  
 // ─── Main Page ────────────────────────────────────────────────────
 export default function UsersPage() {
+  const { role: currentUserRole } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ role: "", status: "" });
@@ -404,7 +406,7 @@ export default function UsersPage() {
         }
       >
         {users.map((u) => {
-          const canDelete = String(u.status).toUpperCase() !== "INACTIVE";
+          const canDelete = String(u.status).toUpperCase() !== "INACTIVE" && currentUserRole === "ROLE_ADMIN";
           return (
             <tr key={u.userId} className="border-b border-ink-700/50 last:border-0 table-row-hover">
               <td className="px-4 py-3 text-slate-500 font-mono text-xs">#{u.userId}</td>
