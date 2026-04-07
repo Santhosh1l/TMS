@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { userService, authService, enrollService } from "../../services/api";
+import { userService, authService, enrollService, courseService } from "../../services/api";
 import {
   Modal, Spinner, Alert, InputField, SelectField
 } from "../../components/common";
@@ -299,38 +299,77 @@ export function EditUserModal({ user, open, onClose, onSaved }) {
 // ─────────────────────────────────────────────
 export function MultiEnrollModal({ user, open, onClose }) {
   const { user: currentUser } = useAuth();
-  const [form, setForm] = useState({ courseIds: "", memberRole: "ROLE_EMPLOYEE" });
+  const [form, setForm] = useState({ memberRole: "ROLE_EMPLOYEE" });
+  const [courses, setCourses] = useState([]);
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState(new Set());
+  const [selectedCourseIds, setSelectedCourseIds] = useState(new Set());
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [results, setResults] = useState(null);
 
   useEffect(() => {
-    if (open) {
-      setForm({ courseIds: "", memberRole: "ROLE_EMPLOYEE" });
+    if (open && user) {
+      setForm({ memberRole: "ROLE_EMPLOYEE" });
       setResults(null);
+      setSelectedCourseIds(new Set());
+      setLoading(true);
+
+      const fetchCourses = async () => {
+        try {
+          const cRes = await courseService.getAll({ active: true });
+          const allCourses = toArray(cRes.data);
+          setCourses(allCourses);
+
+          // Find enrollments for this user across all these courses
+          const eRes = await Promise.allSettled(
+            allCourses.map(c => enrollService.getAll(c.courseId, { userId: user.userId }))
+          );
+          
+          const enrolled = new Set();
+          eRes.forEach((r, idx) => {
+            if (r.status === "fulfilled") {
+              const acts = toArray(r.value.data);
+              if (acts.some(a => a.userId === user.userId)) {
+                enrolled.add(allCourses[idx].courseId);
+              }
+            }
+          });
+          setEnrolledCourseIds(enrolled);
+        } catch (err) {
+          console.error("Failed to load courses for generic enroll");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchCourses();
     }
-  }, [open]);
+  }, [open, user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
   };
 
+  const toggleCourse = (courseId) => {
+    setSelectedCourseIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(courseId)) next.delete(courseId);
+      else next.add(courseId);
+      return next;
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (selectedCourseIds.size === 0) return;
+
     setSaving(true);
     setResults(null);
 
-    const ids = form.courseIds.split(/[\s,]+/).map(id => Number(id)).filter(id => !isNaN(id) && id > 0);
-    if (ids.length === 0) {
-      setResults([{ courseId: "N/A", success: false, message: "No valid Course IDs provided." }]);
-      setSaving(false);
-      return;
-    }
-
-    const uniqueIds = [...new Set(ids)];
     const out = [];
 
-    for (const courseId of uniqueIds) {
+    for (const courseId of Array.from(selectedCourseIds)) {
       try {
         await enrollService.enroll(courseId, {
           userId: user.userId,
@@ -359,45 +398,84 @@ export function MultiEnrollModal({ user, open, onClose }) {
           </div>
         )}
 
-        <SelectField 
-          label="Role in Course" 
-          name="memberRole" 
-          value={form.memberRole} 
-          onChange={handleChange} 
-          options={COURSE_MEMBER_ROLES} 
-        />
+        {loading ? (
+          <div className="flex justify-center py-8"><Spinner /></div>
+        ) : (
+          <>
+            <SelectField 
+              label="Role in Course" 
+              name="memberRole" 
+              value={form.memberRole} 
+              onChange={handleChange} 
+              options={COURSE_MEMBER_ROLES} 
+            />
 
-        <div>
-           <label className="label">Course IDs (comma separated)</label>
-           <textarea
-             name="courseIds"
-             value={form.courseIds}
-             onChange={handleChange}
-             className="input-field min-h-[80px]"
-             placeholder="e.g. 1, 4, 7"
-             required
-           />
-        </div>
-
-        {results && (
-          <div className="bg-ink-900/50 rounded-lg p-3 max-h-[150px] overflow-y-auto">
-            <h4 className="text-xs font-semibold text-slate-300 mb-2 font-display uppercase tracking-wider">Results</h4>
-            <div className="flex flex-col gap-1">
-              {results.map((r, i) => (
-                <div key={i} className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-slate-400">Course #{r.courseId}</span>
-                  <span className={r.success ? "text-accent-teal" : "text-accent-rose truncate max-w-[200px]"}>{r.success ? "Success" : r.message}</span>
-                </div>
-              ))}
+            <div>
+              <label className="label mb-2 block">Select Courses</label>
+              <div className="bg-ink-900/50 border border-ink-700/50 rounded-lg p-2 max-h-[220px] overflow-y-auto flex flex-col gap-1">
+                {courses.length === 0 ? (
+                  <p className="text-slate-500 text-xs text-center py-4">No active courses available.</p>
+                ) : courses.map(c => {
+                  const isEnrolled = enrolledCourseIds.has(c.courseId);
+                  const isSelected = selectedCourseIds.has(c.courseId);
+                  return (
+                    <label 
+                      key={c.courseId} 
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md border transition-colors cursor-pointer ${
+                        isEnrolled ? "opacity-60 bg-ink-900 border-ink-800 cursor-not-allowed" : 
+                        isSelected ? "bg-brand/10 border-brand/30" : "bg-ink-800 border-ink-700/30 hover:border-ink-600 hover:bg-ink-700/50"
+                      }`}
+                    >
+                      <input 
+                        type="checkbox" 
+                        className="accent-brand w-4 h-4"
+                        checked={isEnrolled || isSelected}
+                        disabled={isEnrolled}
+                        onChange={() => toggleCourse(c.courseId)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{c.title}</p>
+                        <p className="text-xs text-slate-500 font-mono">ID: #{c.courseId} • {c.mode}</p>
+                      </div>
+                      {isEnrolled && (
+                        <span className="text-[10px] font-mono text-accent-teal bg-accent-teal/10 px-2 py-0.5 rounded-full border border-accent-teal/20 whitespace-nowrap">
+                          Enrolled
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+
+            {results && (
+              <div className="bg-ink-900/50 rounded-lg p-3 max-h-[150px] overflow-y-auto">
+                <h4 className="text-xs font-semibold text-slate-300 mb-2 font-display uppercase tracking-wider">Results</h4>
+                <div className="flex flex-col gap-1">
+                  {results.map((r, i) => {
+                    const c = courses.find(c => c.courseId === r.courseId);
+                    return (
+                      <div key={i} className="flex items-center justify-between text-xs font-mono">
+                        <span className="text-slate-400 truncate pr-2 max-w-[200px]">{c ? c.title : `Course #${r.courseId}`}</span>
+                        <span className={r.success ? "text-accent-teal" : "text-accent-rose truncate max-w-[150px]"}>{r.success ? "Success" : r.message}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         <div className="flex justify-end gap-2 mt-2">
           <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
-          {!results && (
-            <button type="submit" className="btn-primary flex items-center gap-2" disabled={saving}>
-              {saving ? <Spinner size="sm" /> : "Enroll in Courses"}
+          {!results && !loading && (
+            <button 
+              type="submit" 
+              className="btn-primary flex items-center gap-2" 
+              disabled={saving || selectedCourseIds.size === 0}
+            >
+              {saving ? <Spinner size="sm" /> : `Enroll (${selectedCourseIds.size})`}
             </button>
           )}
         </div>
