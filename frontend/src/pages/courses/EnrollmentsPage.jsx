@@ -6,11 +6,13 @@ import {
   Alert, EmptyState, Spinner, InputField, SelectField,
 } from "../../components/common";
 import { COURSE_MEMBER_ROLES, COURSE_MEMBER_STATUSES } from "../../utils/enums";
+import { useAuth } from "../../context/AuthContext";
 
 
 // ─── Enroll Modal ────────────────────────────────────────────────
 function EnrollModal({ courseId, open, onClose, onSaved }) {
-  const [form, setForm] = useState({ userId: "", memberRole: "EMPLOYEE", status: "ENROLLED", activeFrom: "", activeTo: "" });
+  const { user } = useAuth();
+  const [form, setForm] = useState({ userId: "", memberRole: "ROLE_EMPLOYEE", status: "ASSIGNED", activeFrom: "", activeTo: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [userPreview, setUserPreview] = useState(null); // { name, role }
@@ -18,7 +20,7 @@ function EnrollModal({ courseId, open, onClose, onSaved }) {
   const debounceRef = useRef(null);
 
   useEffect(() => {
-    setForm({ userId: "", memberRole: "EMPLOYEE", status: "ENROLLED", activeFrom: "", activeTo: "" });
+    setForm({ userId: "", memberRole: "ROLE_EMPLOYEE", status: "ASSIGNED", activeFrom: "", activeTo: "" });
     setError("");
     setUserPreview(null);
   }, [open]);
@@ -59,7 +61,12 @@ function EnrollModal({ courseId, open, onClose, onSaved }) {
     setSaving(true);
     setError("");
     try {
-      await enrollService.enroll(courseId, { ...form, userId: Number(form.userId), courseId: Number(courseId) });
+      await enrollService.enroll(courseId, { 
+        ...form, 
+        userId: Number(form.userId), 
+        courseId: Number(courseId),
+        assignedByUserId: user?.userId
+      });
       onSaved();
       onClose();
     } catch (err) {
