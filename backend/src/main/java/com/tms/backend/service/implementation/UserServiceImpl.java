@@ -3,6 +3,8 @@ package com.tms.backend.service.implementation;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +28,17 @@ public class UserServiceImpl implements UserService {
 	@Override
 	public List<UserDTO> getAllUsers(UserRole role, UserStatus status) {
 		List<User> all = userRepository.findAllByIsDeleteFalse();
+
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		if (auth != null && auth.getName() != null && !auth.getName().equals("anonymousUser")) {
+			User currentUser = userRepository.findByEmail(auth.getName()).orElse(null);
+			if (currentUser != null && currentUser.getRole() == UserRole.ROLE_MANAGER) {
+				all = all.stream()
+						.filter(u -> u.getManager() != null && u.getManager().getId().equals(currentUser.getId()))
+						.collect(Collectors.toList());
+			}
+		}
+
 		if (role != null) {
 			all = all.stream()
 					.filter(u -> u.getRole() == role)

@@ -47,15 +47,11 @@ public class UserController {
 		return ResponseEntity.ok(userService.getUserById(userId));
 	}
 
-
-
-	//@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+	@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
 	@PutMapping
 	public ResponseEntity<UserDTO> updateUserById(@Valid @RequestBody UserUpdateDTO data) {
-		return ResponseEntity.ok(userService.updateUserById(data)); 
+		return ResponseEntity.ok(userService.updateUserById(data));
 	}
-
-
 
 	@PreAuthorize("hasRole('ADMIN')")
 	@DeleteMapping("/{userId}")
