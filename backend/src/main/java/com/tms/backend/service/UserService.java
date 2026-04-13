@@ -1,6 +1,6 @@
 package com.tms.backend.service;
 
-import java.util.List;
+import org.springframework.data.domain.Page;
 
 import com.tms.backend.dto.UserDTO;
 import com.tms.backend.dto.UserUpdateDTO;
@@ -9,7 +9,7 @@ import com.tms.backend.enums.UserStatus;
 
 public interface UserService {
 
-	List<UserDTO> getAllUsers(UserRole role, UserStatus status);
+	Page<UserDTO> getAllUsers(UserRole role, UserStatus status, int page, int size);
 
 	UserDTO getUserById(Long userId);
 

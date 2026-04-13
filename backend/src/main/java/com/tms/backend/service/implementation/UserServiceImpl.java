@@ -1,8 +1,9 @@
 package com.tms.backend.service.implementation;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -26,32 +27,46 @@ public class UserServiceImpl implements UserService {
 	}
 
 	@Override
-	public List<UserDTO> getAllUsers(UserRole role, UserStatus status) {
-		List<User> all = userRepository.findAllByIsDeleteFalse();
+	public Page<UserDTO> getAllUsers(UserRole role, UserStatus status, int page, int size) {
+		Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
 
+		// Determine if the current user is a MANAGER (scope to their team only)
+		Long managerId = null;
 		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 		if (auth != null && auth.getName() != null && !auth.getName().equals("anonymousUser")) {
 			User currentUser = userRepository.findByEmail(auth.getName()).orElse(null);
 			if (currentUser != null && currentUser.getRole() == UserRole.ROLE_MANAGER) {
-				all = all.stream()
-						.filter(u -> u.getManager() != null && u.getManager().getId().equals(currentUser.getId()))
-						.collect(Collectors.toList());
+				managerId = currentUser.getId();
 			}
 		}
 
-		if (role != null) {
-			all = all.stream()
-					.filter(u -> u.getRole() == role)
-					.collect(Collectors.toList());
+		Page<User> resultPage;
+
+		if (managerId != null) {
+			// Manager-scoped: only their direct reports
+			if (role != null && status != null) {
+				resultPage = userRepository.findAllByIsDeleteFalseAndManager_IdAndRoleAndStatus(managerId, role, status, pageable);
+			} else if (role != null) {
+				resultPage = userRepository.findAllByIsDeleteFalseAndManager_IdAndRole(managerId, role, pageable);
+			} else if (status != null) {
+				resultPage = userRepository.findAllByIsDeleteFalseAndManager_IdAndStatus(managerId, status, pageable);
+			} else {
+				resultPage = userRepository.findAllByIsDeleteFalseAndManager_Id(managerId, pageable);
+			}
+		} else {
+			// Admin-scoped: all users
+			if (role != null && status != null) {
+				resultPage = userRepository.findAllByIsDeleteFalseAndRoleAndStatus(role, status, pageable);
+			} else if (role != null) {
+				resultPage = userRepository.findAllByIsDeleteFalseAndRole(role, pageable);
+			} else if (status != null) {
+				resultPage = userRepository.findAllByIsDeleteFalseAndStatus(status, pageable);
+			} else {
+				resultPage = userRepository.findAllByIsDeleteFalse(pageable);
+			}
 		}
 
-		if (status != null) {
-			all = all.stream()
-					.filter(u -> u.getStatus() == status)
-					.collect(Collectors.toList());
-		}
-
-		return all.stream().map(this::toDTO).collect(Collectors.toList());
+		return resultPage.map(this::toDTO);
 	}
 
 	@Override
@@ -59,13 +74,10 @@ public class UserServiceImpl implements UserService {
 		return toDTO(findActiveUser(userId));
 	}
 
-
-
 	@Override
 	public UserDTO updateUserById(UserUpdateDTO data) {
 
 		User user = findActiveUser(data.getUserId());
-
 
 		if (data.getName() != null && !data.getName().isBlank()) {
 			user.setName(data.getName().trim());
@@ -123,6 +135,7 @@ public class UserServiceImpl implements UserService {
 
 		return toDTO(userRepository.save(user));
 	}
+
 	@Override
 	public String deleteById(Long userId) {
 		User user = userRepository.findById(userId)
@@ -135,10 +148,9 @@ public class UserServiceImpl implements UserService {
 
 		user.setStatus(UserStatus.INACTIVE);
 		userRepository.save(user);
-if(user.getStatus()==UserStatus.INACTIVE){
-		return "User successfully deleted";}
-return "User not deleted";
+		return "User successfully deleted";
 	}
+
 	// ── Helpers ─────────────────────────────────────────────────────────────────
 
 	private User findActiveUser(Long userId) {

@@ -29,17 +29,17 @@ public class CertificateController {
 	public CertificateController(CertificateService certificateService) {
 		this.certificateService = certificateService;
 	}
-	
 
-	
+
+
 	@GetMapping
 	public ResponseEntity<List<CertificateDTO>> getAllCertificatesByEnrollmentId(
 			@RequestParam(required = false) Long enrollmentId,
 			@RequestParam(required = false) Long courseId,
 			@RequestParam(required = false) Long userId) {
-		return ResponseEntity.ok(certificateService.getAllCertificates(enrollmentId, courseId, userId)); 
+		return ResponseEntity.ok(certificateService.getAllCertificates(enrollmentId, courseId, userId));
 	}
-	
+
 	@GetMapping("/{id}")
 	public ResponseEntity<CertificateDTO> getCertificateById(@PathVariable Long id) {
 		return ResponseEntity.ok(certificateService.getCertificateById(id));
@@ -49,11 +49,11 @@ public class CertificateController {
 	@PostMapping
 	public ResponseEntity<CertificateDTO> issueCertificateForEnrollment(@Valid @RequestBody CertificateDTO dto) {
 
-		return ResponseEntity.status(201).body(certificateService.issueCertificateForEnrollment(dto)); 
+		return ResponseEntity.status(201).body(certificateService.issueCertificateForEnrollment(dto));
 	}
 
 
-	@PreAuthorize("hasAnyAuthority('ADMIN','TRAINER','MANAGER')")
+	@PreAuthorize("hasAnyRole('ADMIN','TRAINER','MANAGER')")
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> delete(@PathVariable Long id) {
 		certificateService.deleteById(id);

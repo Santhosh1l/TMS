@@ -5,7 +5,7 @@ import com.tms.backend.enums.AttendanceStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(
@@ -33,10 +33,10 @@ public class Attendance {
     private AttendanceStatus status;
 
     @Column(name = "check_in_time")
-    private LocalDate checkInTime;
+    private LocalDateTime checkInTime;
 
     @Column(name = "check_out_time")
-    private LocalDate checkOutTime;
+    private LocalDateTime checkOutTime;
 
     @Column(length = 200)
     private String remarks;
@@ -44,7 +44,7 @@ public class Attendance {
     @Column(name = "is_delete", nullable = false)
     @Builder.Default
     private boolean isDelete = false;
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "session_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_attendance_session"))

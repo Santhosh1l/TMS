@@ -3,7 +3,7 @@ import com.tms.backend.enums.AttendanceStatus;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -11,25 +11,25 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 public class AttendanceDTO {
-	//id
-	private Long attentanceId;
-	
+    //id
+    private Long attentanceId;
+
     @NotNull(message = "sessionId is required")
     @Positive(message = "sessionId must be a positive number")
     private Long sessionId;
-    
+
     @NotNull(message = "userId is required")
     @Positive(message = "userId must be a positive number")
     private Long userId;
-    
+
     @NotNull(message = "status is required")
     private AttendanceStatus status;
-    
-    private LocalDate checkInTime;
-    
-    private LocalDate checkOutTime;
-    
+
+    private LocalDateTime checkInTime;
+
+    private LocalDateTime checkOutTime;
+
     @Size(max = 200, message = "remarks must be at most 200 characters")
     private String remarks;
- 
+
 }

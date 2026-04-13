@@ -38,9 +38,9 @@ public class SessionController {
 	@GetMapping
 	@PreAuthorize("isAuthenticated()")
 	public ResponseEntity<List<SessionDTO>> getAllSession(@RequestParam(required = false) Long trainerId,
-			@RequestParam(required = false) Long courseId, @RequestParam(required = false) Long taskId,
-			@RequestParam(defaultValue = "false") boolean recurring,
-			@RequestParam(defaultValue = "false") boolean active) {
+														  @RequestParam(required = false) Long courseId, @RequestParam(required = false) Long taskId,
+														  @RequestParam(defaultValue = "false") boolean recurring,
+														  @RequestParam(defaultValue = "false") boolean active) {
 		return ResponseEntity.status(200)
 				.body(sessionService.getAllSessions(trainerId, courseId, taskId, recurring, active));
 	}
@@ -54,7 +54,7 @@ public class SessionController {
 
 
 	@PostMapping
-	@PreAuthorize("hasAuthority('ROLE_ADMIN')")
+	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<SessionDTO> createSession(@Valid @RequestBody SessionDTO req) {
 		return ResponseEntity.status(201).body(sessionService.createSession(req));
 	}

@@ -97,11 +97,10 @@ function ManagerPreview({ managerId }) {
           </div>
 
           <span
-            className={`text-xs font-mono px-2 py-0.5 rounded-full border ${
-              managerPreview.status === "ACTIVE"
+            className={`text-xs font-mono px-2 py-0.5 rounded-full border ${managerPreview.status === "ACTIVE"
                 ? "text-accent-teal bg-accent-teal/10 border-accent-teal/30"
                 : "text-slate-400 bg-slate-400/10 border-slate-400/30"
-            }`}
+              }`}
           >
             {managerPreview.status}
           </span>
@@ -324,7 +323,7 @@ export function MultiEnrollModal({ user, open, onClose }) {
           const eRes = await Promise.allSettled(
             allCourses.map(c => enrollService.getAll(c.courseId, { userId: user.userId }))
           );
-          
+
           const enrolled = new Set();
           eRes.forEach((r, idx) => {
             if (r.status === "fulfilled") {
@@ -393,8 +392,8 @@ export function MultiEnrollModal({ user, open, onClose }) {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {user && (
           <div className="bg-ink-900 border border-ink-600 rounded-lg p-3">
-             <p className="text-sm font-medium text-white">{user.name}</p>
-             <p className="text-xs text-slate-400 font-mono">ID: #{user.userId} | Role: {user.role?.replace("ROLE_", "")}</p>
+            <p className="text-sm font-medium text-white">{user.name}</p>
+            <p className="text-xs text-slate-400 font-mono">ID: #{user.userId} | Role: {user.role?.replace("ROLE_", "")}</p>
           </div>
         )}
 
@@ -402,12 +401,12 @@ export function MultiEnrollModal({ user, open, onClose }) {
           <div className="flex justify-center py-8"><Spinner /></div>
         ) : (
           <>
-            <SelectField 
-              label="Role in Course" 
-              name="memberRole" 
-              value={form.memberRole} 
-              onChange={handleChange} 
-              options={COURSE_MEMBER_ROLES} 
+            <SelectField
+              label="Role in Course"
+              name="memberRole"
+              value={form.memberRole}
+              onChange={handleChange}
+              options={COURSE_MEMBER_ROLES}
             />
 
             <div>
@@ -419,15 +418,14 @@ export function MultiEnrollModal({ user, open, onClose }) {
                   const isEnrolled = enrolledCourseIds.has(c.courseId);
                   const isSelected = selectedCourseIds.has(c.courseId);
                   return (
-                    <label 
-                      key={c.courseId} 
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md border transition-colors cursor-pointer ${
-                        isEnrolled ? "opacity-60 bg-ink-900 border-ink-800 cursor-not-allowed" : 
-                        isSelected ? "bg-brand/10 border-brand/30" : "bg-ink-800 border-ink-700/30 hover:border-ink-600 hover:bg-ink-700/50"
-                      }`}
+                    <label
+                      key={c.courseId}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md border transition-colors cursor-pointer ${isEnrolled ? "opacity-60 bg-ink-900 border-ink-800 cursor-not-allowed" :
+                          isSelected ? "bg-brand/10 border-brand/30" : "bg-ink-800 border-ink-700/30 hover:border-ink-600 hover:bg-ink-700/50"
+                        }`}
                     >
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         className="accent-brand w-4 h-4"
                         checked={isEnrolled || isSelected}
                         disabled={isEnrolled}
@@ -470,9 +468,9 @@ export function MultiEnrollModal({ user, open, onClose }) {
         <div className="flex justify-end gap-2 mt-2">
           <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
           {!results && !loading && (
-            <button 
-              type="submit" 
-              className="btn-primary flex items-center gap-2" 
+            <button
+              type="submit"
+              className="btn-primary flex items-center gap-2"
               disabled={saving || selectedCourseIds.size === 0}
             >
               {saving ? <Spinner size="sm" /> : `Enroll (${selectedCourseIds.size})`}
@@ -483,37 +481,51 @@ export function MultiEnrollModal({ user, open, onClose }) {
     </Modal>
   );
 }
- 
+
 // ─── Main Page ────────────────────────────────────────────────────
 export default function UsersPage() {
   const { role: currentUserRole } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ role: "", status: "" });
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const PAGE_SIZE = 10;
   const [addOpen, setAddOpen] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [enrollUser, setEnrollUser] = useState(null);
   const [deleteUser, setDeleteUser] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [alert, setAlert] = useState({ type: "", message: "" });
- 
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = { page, size: PAGE_SIZE };
       if (filters.role) params.role = filters.role;
       if (filters.status) params.status = filters.status;
       const res = await userService.getAll(params);
-      setUsers(toArray(res.data));
+      // Spring Page<T> response shape: { content: [], totalPages, totalElements, ... }
+      const pageData = res.data;
+      setUsers(Array.isArray(pageData.content) ? pageData.content : toArray(pageData));
+      setTotalPages(pageData.totalPages ?? 1);
+      setTotalElements(pageData.totalElements ?? 0);
     } catch {
       setAlert({ type: "error", message: "Failed to load users." });
     } finally {
       setLoading(false);
     }
-  }, [filters]);
- 
+  }, [filters, page]);
+
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
- 
+
+  // Reset to page 0 when filters change
+  const handleFilterChange = (key, value) => {
+    setPage(0);
+    setFilters((f) => ({ ...f, [key]: value }));
+  };
+
   const handleDelete = async () => {
     setDeleting(true);
     try {
@@ -527,7 +539,7 @@ export default function UsersPage() {
       setDeleting(false);
     }
   };
- 
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -539,12 +551,12 @@ export default function UsersPage() {
           </button>
         }
       />
- 
+
       {/* Filters */}
       <div className="flex gap-3 mb-6 flex-wrap">
         <select
           value={filters.role}
-          onChange={(e) => setFilters((f) => ({ ...f, role: e.target.value }))}
+          onChange={(e) => handleFilterChange("role", e.target.value)}
           className="input-field w-44"
         >
           <option value="">All Roles</option>
@@ -554,23 +566,23 @@ export default function UsersPage() {
         </select>
         <select
           value={filters.status}
-          onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+          onChange={(e) => handleFilterChange("status", e.target.value)}
           className="input-field w-40"
         >
           <option value="">All Statuses</option>
           {USER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <span className="text-slate-500 text-xs font-mono self-center">
-          {users.length} user{users.length !== 1 ? "s" : ""}
+          {totalElements} user{totalElements !== 1 ? "s" : ""}
         </span>
       </div>
- 
+
       {alert.message && (
         <div className="mb-4">
           <Alert type={alert.type} message={alert.message} />
         </div>
       )}
- 
+
       <Table
         headers={["ID", "Name", "Email", "Role", "Department", "Status", "Actions"]}
         loading={loading}
@@ -625,8 +637,7 @@ export default function UsersPage() {
                   >
                     Enroll
                   </button>
- 
-                  {/* Hide Delete when status is INACTIVE */}
+
                   {canDelete && (
                     <button
                       onClick={() => canDelete && setDeleteUser(u)}
@@ -641,7 +652,63 @@ export default function UsersPage() {
           );
         })}
       </Table>
- 
+
+      {/* Pagination controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-xs text-slate-500 font-mono">
+            Page {page + 1} of {totalPages}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(0)}
+              disabled={page === 0}
+              className="px-2 py-1 text-xs rounded border border-ink-600 text-slate-400 hover:text-white hover:border-ink-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              «
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="px-3 py-1 text-xs rounded border border-ink-600 text-slate-400 hover:text-white hover:border-ink-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Prev
+            </button>
+
+            {/* Page number pills — show up to 5 around current page */}
+            {Array.from({ length: totalPages }, (_, i) => i)
+              .filter((i) => i >= Math.max(0, page - 2) && i <= Math.min(totalPages - 1, page + 2))
+              .map((i) => (
+                <button
+                  key={i}
+                  onClick={() => setPage(i)}
+                  className={`px-3 py-1 text-xs rounded border transition-colors ${i === page
+                      ? "border-brand text-brand bg-brand/10"
+                      : "border-ink-600 text-slate-400 hover:text-white hover:border-ink-400"
+                    }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              className="px-3 py-1 text-xs rounded border border-ink-600 text-slate-400 hover:text-white hover:border-ink-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+            <button
+              onClick={() => setPage(totalPages - 1)}
+              disabled={page >= totalPages - 1}
+              className="px-2 py-1 text-xs rounded border border-ink-600 text-slate-400 hover:text-white hover:border-ink-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              »
+            </button>
+          </div>
+        </div>
+      )}
+
       <AddUserModal open={addOpen} onClose={() => setAddOpen(false)} onSaved={fetchUsers} />
       <EditUserModal user={editUser} open={!!editUser} onClose={() => setEditUser(null)} onSaved={fetchUsers} />
       <MultiEnrollModal user={enrollUser} open={!!enrollUser} onClose={() => setEnrollUser(null)} />

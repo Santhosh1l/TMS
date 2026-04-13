@@ -1,7 +1,6 @@
 package com.tms.backend.controller;
 
-import java.util.List;
-
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -35,10 +34,12 @@ public class UserController {
 
 	@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
 	@GetMapping
-	public ResponseEntity<List<UserDTO>> getAllusers(
+	public ResponseEntity<Page<UserDTO>> getAllUsers(
 			@RequestParam(required = false) UserRole role,
-			@RequestParam(required = false) UserStatus status) {
-		return ResponseEntity.ok(userService.getAllUsers(role, status));
+			@RequestParam(required = false) UserStatus status,
+			@RequestParam(defaultValue = "0")  int page,
+			@RequestParam(defaultValue = "10") int size) {
+		return ResponseEntity.ok(userService.getAllUsers(role, status, page, size));
 	}
 
 	@PreAuthorize("isAuthenticated()")
