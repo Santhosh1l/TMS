@@ -5,9 +5,18 @@ import {
   PageHeader, Table, StatusBadge, Modal, ConfirmDialog,
   Alert, EmptyState, Spinner, InputField, SelectField,
 } from "../../components/common";
-import { COURSE_MEMBER_ROLES, COURSE_MEMBER_STATUSES } from "../../utils/enums";
+import { COURSE_MEMBER_STATUSES } from "../../utils/enums";
 import { useAuth } from "../../context/AuthContext";
 
+
+// Friendly labels for course member roles
+const ENROLL_MEMBER_ROLES = [
+  { value: "ROLE_EMPLOYEE", label: "Learner" },
+  { value: "ROLE_TRAINER", label: "Trainer" },
+  { value: "ROLE_CO_TRAINER", label: "Co-Trainer" },
+];
+
+const ROLE_LABEL = ENROLL_MEMBER_ROLES.reduce((acc, r) => ({ ...acc, [r.value]: r.label }), {});
 
 // ─── Enroll Modal ────────────────────────────────────────────────
 function EnrollModal({ courseId, open, onClose, onSaved }) {
@@ -61,9 +70,9 @@ function EnrollModal({ courseId, open, onClose, onSaved }) {
     setSaving(true);
     setError("");
     try {
-      await enrollService.enroll(courseId, { 
-        ...form, 
-        userId: Number(form.userId), 
+      await enrollService.enroll(courseId, {
+        ...form,
+        userId: Number(form.userId),
         courseId: Number(courseId),
         assignedByUserId: user?.userId
       });
@@ -109,18 +118,17 @@ function EnrollModal({ courseId, open, onClose, onSaved }) {
                     <p className="text-white text-sm font-medium truncate">{userPreview.name}</p>
                     <p className="text-slate-500 text-xs font-mono">{userPreview.role}</p>
                   </div>
-                  <span className={`text-xs font-mono px-2 py-0.5 rounded-full border ${
-                    userPreview.status === "ACTIVE"
+                  <span className={`text-xs font-mono px-2 py-0.5 rounded-full border ${userPreview.status === "ACTIVE"
                       ? "text-accent-teal bg-accent-teal/10 border-accent-teal/30"
                       : "text-slate-400 bg-slate-400/10 border-slate-400/30"
-                  }`}>{userPreview.status}</span>
+                    }`}>{userPreview.status}</span>
                 </>
               ) : null}
             </div>
           )}
         </div>
 
-        <SelectField label="Role" name="memberRole" value={form.memberRole} onChange={handleChange} options={COURSE_MEMBER_ROLES} />
+        <SelectField label="Role" name="memberRole" value={form.memberRole} onChange={handleChange} options={ENROLL_MEMBER_ROLES} />
         <SelectField label="Status" name="status" value={form.status} onChange={handleChange} options={COURSE_MEMBER_STATUSES} />
         <div className="grid grid-cols-2 gap-4">
           <InputField label="Active From" name="activeFrom" type="date" value={form.activeFrom} onChange={handleChange} />
@@ -199,7 +207,21 @@ export default function EnrollmentsPage() {
     setLoading(true);
     try {
       const res = await enrollService.getAll(courseId);
-      setEnrollments(toArray(res.data));
+      const list = toArray(res.data);
+
+      // Batch-fetch unique user names
+      const uniqueIds = [...new Set(list.map((e) => e.userId).filter(Boolean))];
+      const userMap = {};
+      await Promise.allSettled(
+        uniqueIds.map(async (id) => {
+          try {
+            const u = await userService.getById(id);
+            if (u?.data?.name) userMap[id] = u.data.name;
+          } catch { /* leave blank on failure */ }
+        })
+      );
+
+      setEnrollments(list.map((e) => ({ ...e, userName: userMap[e.userId] || null })));
     } catch {
       setAlert({ type: "error", message: "Failed to load enrollments." });
     } finally {
@@ -237,7 +259,7 @@ export default function EnrollmentsPage() {
       {alert.message && <div className="mb-4"><Alert type={alert.type} message={alert.message} /></div>}
 
       <Table
-        headers={["ID", "User ID", "Role", "Status", "Progress", "Assigned On", "Actions"]}
+        headers={["ID", "User", "Role", "Status", "Progress", "Assigned On", "Actions"]}
         loading={loading}
         empty={
           !loading && enrollments.length === 0 ? (
@@ -261,8 +283,22 @@ export default function EnrollmentsPage() {
         {enrollments.map((e) => (
           <tr key={e.enrollmentId} className="border-b border-ink-700/50 last:border-0 table-row-hover">
             <td className="px-4 py-3 text-slate-500 font-mono text-xs">#{e.enrollmentId}</td>
-            <td className="px-4 py-3 font-mono text-xs text-white">{e.userId}</td>
-            <td className="px-4 py-3 text-brand font-mono text-xs">{e.memberRole}</td>
+            <td className="px-4 py-3">
+              <div className="flex items-center gap-2">
+                {e.userName && (
+                  <div className="w-6 h-6 rounded-full bg-brand/20 border border-brand/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-brand text-xs font-bold">{e.userName.charAt(0).toUpperCase()}</span>
+                  </div>
+                )}
+                <div className="min-w-0">
+                  {e.userName && (
+                    <p className="text-white text-sm font-medium truncate leading-tight">{e.userName}</p>
+                  )}
+                  <p className="text-slate-500 font-mono text-xs">#{e.userId}</p>
+                </div>
+              </div>
+            </td>
+            <td className="px-4 py-3 text-brand font-mono text-xs">{ROLE_LABEL[e.memberRole] ?? e.memberRole}</td>
             <td className="px-4 py-3"><StatusBadge status={e.status} /></td>
             <td className="px-4 py-3">
               <div className="flex items-center gap-2">
